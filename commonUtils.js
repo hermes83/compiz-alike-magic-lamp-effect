@@ -7,17 +7,22 @@ const Effects = Me.imports.effects;
 const Config = imports.misc.config;
 
 const IS_OLD_SHELL_VERSIONS = Config.PACKAGE_VERSION.startsWith("3.36") ||
-		Config.PACKAGE_VERSION.startsWith("3.34") ||
-		Config.PACKAGE_VERSION.startsWith("3.32") ||
-		Config.PACKAGE_VERSION.startsWith("3.30") ||
-		Config.PACKAGE_VERSION.startsWith("3.28");
+        Config.PACKAGE_VERSION.startsWith("3.34") ||
+        Config.PACKAGE_VERSION.startsWith("3.32") ||
+        Config.PACKAGE_VERSION.startsWith("3.30") ||
+        Config.PACKAGE_VERSION.startsWith("3.28");
 
+const HAS_GLOBAL_DISPLAY = !Config.PACKAGE_VERSION.startsWith("3.28");
 
 const MINIMIZE_EFFECT_NAME = 'minimize-magic-lamp-effect';
 const UNMINIMIZE_EFFECT_NAME = 'unminimize-magic-lamp-effect';
 
 var is_old_shell_versions = function () {
     return IS_OLD_SHELL_VERSIONS;
+}
+
+var has_global_display = function () {
+    return HAS_GLOBAL_DISPLAY;
 }
 
 var add_actor_magic_lamp_minimize_effect = function (actor, icon) { 
