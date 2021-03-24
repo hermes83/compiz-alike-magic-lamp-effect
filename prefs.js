@@ -3,6 +3,7 @@ const Gtk = imports.gi.Gtk;
 let Extension = imports.misc.extensionUtils.getCurrentExtension();
 let Settings = Extension.imports.settings;
 
+let effectComboBox = null;
 let durationSlider = null;
 let xTilesSlider = null;
 let yTilesSlider = null;
@@ -18,6 +19,7 @@ function buildPrefsWidget() {
         spacing: 20
     });
 
+    effectComboBox = addComboBox(frame, "Effect", config.EFFECT);
     durationSlider = addSlider(frame, "Duration (ms)", config.DURATION, 100.0, 1000.0, 0);
     xTilesSlider = addSlider(frame, "X Tiles", config.X_TILES, 3.0, 50.0, 0);
     yTilesSlider = addSlider(frame, "Y Tiles", config.Y_TILES, 3.0, 50.0, 0);
@@ -32,10 +34,12 @@ function buildPrefsWidget() {
 function addDefaultButton(frame, config) {
     let button = new Gtk.Button({label: "Reset to default"});
     button.connect('clicked', function () {
-        config.DURATION.set(400.0);
-        config.X_TILES.set(20.0);
-        config.Y_TILES.set(25.0);
+        config.EFFECT.set("default");
+        config.DURATION.set(500.0);
+        config.X_TILES.set(15.0);
+        config.Y_TILES.set(20.0);
 
+        effectComboBox.set_active(0);
         durationSlider.set_value(config.DURATION.get());
         xTilesSlider.set_value(config.X_TILES.get());
         yTilesSlider.set_value(config.Y_TILES.get());
@@ -70,6 +74,37 @@ function addSlider(frame, labelText, prefConfig, lower, upper, decimalDigits) {
     frame.add(hbox);
     
     return scale;
+}
+
+function addComboBox(frame, labelText, prefConfig) {
+    let gtkComboBoxText = new Gtk.ComboBoxText({hexpand: true, halign: Gtk.Align.END});
+
+    let activeIndex = 0;
+    let activeValue = prefConfig.get();
+    let values = ["default", "sine"];
+
+    for (let i = 0; i < values.length; i++) {
+        gtkComboBoxText.append_text(values[i]);
+        if (activeValue && activeValue == values[i]) {
+            activeIndex = i;
+        }
+    }
+
+    gtkComboBoxText.set_active(activeIndex);
+    gtkComboBoxText.connect('changed', function (sw) {
+        var newval = values[sw.get_active()];
+        if (newval != prefConfig.get()) {
+            prefConfig.set(newval);
+        }
+    });
+
+    let hbox = new Gtk.Box({orientation: Gtk.Orientation.HORIZONTAL, spacing: 20});
+    hbox.add(new Gtk.Label({label: labelText, use_markup: true}));
+    hbox.add(gtkComboBoxText);
+    
+    frame.add(hbox);
+    
+    return gtkComboBoxText;
 }
 
 function addBooleanSwitch(frame, labelText, prefConfig) {

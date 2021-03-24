@@ -9,7 +9,7 @@ const Me = ExtensionUtils.getCurrentExtension();
 const Utils = Me.imports.commonUtils;
 const MonitorUtils = Me.imports.monitorUtils;
 
-const EPSILON = 100;
+const EPSILON = 40;
 
 var AbstractCommonEffect = GObject.registerClass({},
     class AbstractCommonEffect extends Clutter.DeformEffect {
@@ -31,7 +31,14 @@ var AbstractCommonEffect = GObject.registerClass({},
             this.monitorConfiguration = new MonitorUtils.MonitorConfiguration();
             this.scale = 1;
             
+            this.progress = 0;
+            this.split = 0.3;
+            this.k = 0;
             this.j = 0;
+            this.expandWidth = 0;
+            this.fullWidth = 0;
+            this.expandHeight = 0;
+            this.fullHeight = 0;
             this.width = 0;
             this.height = 0;
             this.x = 0;
@@ -44,6 +51,7 @@ var AbstractCommonEffect = GObject.registerClass({},
             this.iconPosition = null;
 
             let prefs = (new Settings.Prefs());
+            this.EFFECT = prefs.EFFECT.get(); //'default' - 'sine'
             this.DURATION = prefs.DURATION.get();
             this.X_TILES = prefs.X_TILES.get();
             this.Y_TILES = prefs.Y_TILES.get();
@@ -83,15 +91,15 @@ var AbstractCommonEffect = GObject.registerClass({},
                 [this.window.x, this.window.y, this.window.width, this.window.height] = [actor.get_x() - currentMonitor.x, actor.get_y() - currentMonitor.y, actor.get_width(), actor.get_height()];
                 [this.icon.x, this.icon.y, this.icon.width, this.icon.height] = [this.icon.x - currentMonitor.x, this.icon.y - currentMonitor.y, this.icon.width, this.icon.height];
 
-                if (this.icon.x <= EPSILON) {
-                    this.iconPosition = St.Side.LEFT;
-                } else if (this.icon.x >= this.monitor.width - EPSILON) {
-                    this.iconPosition = St.Side.RIGHT;
-                } else if (this.icon.y <= EPSILON) {
-                    this.iconPosition = St.Side.TOP;
-                } else {
+                if (this.icon.y + this.icon.height >= this.monitor.height - EPSILON) {
                     this.iconPosition = St.Side.BOTTOM;
-                }
+                } else if (this.icon.x <= EPSILON) {
+                    this.iconPosition = St.Side.LEFT;
+                } else if (this.icon.x + this.icon.width >= this.monitor.width - EPSILON) {
+                    this.iconPosition = St.Side.RIGHT;
+                } else {
+                    this.iconPosition = St.Side.TOP;
+                } 
 
                 this.set_n_tiles(this.X_TILES, this.Y_TILES);
             
@@ -117,34 +125,75 @@ var AbstractCommonEffect = GObject.registerClass({},
 
         vfunc_deform_vertex(w, h, v) {
             if (this.iconPosition == St.Side.LEFT) {
-                this.width = this.window.x + this.window.width - this.icon.width;
-                this.x = (this.width - this.j * this.width) * v.tx;
-                this.y = v.ty * this.window.height * this.x / this.width + v.ty * this.icon.height * (this.width - this.x) / this.width;
-                this.offsetX = this.icon.width - this.window.x;
-                this.offsetY = (this.icon.y - this.window.y) * ((this.width - this.x) / this.width);
-                this.effectY = Math.sin(this.x / this.width * Math.PI * 4) * this.window.height / 14;
+                this.width = this.window.width - this.icon.width + this.window.x * this.k;
 
+                this.x = (this.width - this.j * this.width) * v.tx;  
+                this.y = v.ty * this.window.height * (this.x + (this.width - this.x) * (1 - this.k)) / this.width + 
+                         v.ty * this.icon.height * (this.width - this.x) / this.width;
+
+                this.offsetX = this.icon.width - this.window.x * this.k;
+                this.offsetY = (this.icon.y - this.window.y) * ((this.width - this.x) / this.width) * this.k;
+
+                if (this.EFFECT === 'sine') {
+                    this.effectY = Math.sin(this.x / this.width * Math.PI * 4) * this.window.height / 14 * this.k;
+                } else {
+                    this.effectY = Math.sin((0.5 - (this.width - this.x) / this.width) * 2 * Math.PI) * (this.window.y + this.window.height * v.ty - (this.icon.y + this.icon.height * v.ty)) / 7 * this.k;
+                }
             } else if (this.iconPosition == St.Side.TOP) {
-                this.height = this.window.y + this.window.height - this.icon.height;
+                this.height = this.window.height - this.icon.height + this.window.y * this.k;
+
                 this.y = (this.height - this.j * this.height) * v.ty;
-                this.x = v.tx * this.window.width * this.y / this.height + v.tx * this.icon.width * (this.height - this.y) / this.height;
-                this.offsetX = (this.icon.x - this.window.x) * ((this.height - this.y) / this.height);
-                this.offsetY = this.icon.height - this.window.y;
-                this.effectX = Math.sin(this.y / this.height * Math.PI * 4) * this.window.width / 14;
+                this.x = v.tx * this.window.width * (this.y + (this.height - this.y) * (1 - this.k)) / this.height + 
+                         v.tx * this.icon.width * (this.height - this.y) / this.height;
 
+                this.offsetX = (this.icon.x - this.window.x) * ((this.height - this.y) / this.height) * this.k;
+                this.offsetY = this.icon.height - this.window.y * this.k;
+
+                if (this.EFFECT === 'sine') {
+                    this.effectX = Math.sin(this.y / this.height * Math.PI * 4) * this.window.width / 14 * this.k;
+                } else {
+                    this.effectX = Math.sin((0.5 - (this.height - this.y) / this.height) * 2 * Math.PI) * (this.window.x + this.window.width * v.tx - (this.icon.x + this.icon.width * v.tx)) / 7 * this.k;
+                }
             } else if (this.iconPosition == St.Side.RIGHT) {
-                this.width = this.monitor.width - this.window.x - this.icon.width;
-                this.x = this.monitor.width - this.icon.width - (this.width - this.j * this.width) * (1 - v.tx) - this.window.x;
-                this.y = v.ty * this.window.height * (this.width - this.x) / this.width + v.ty * this.icon.height * this.x / this.width;
-                this.offsetY = (this.icon.y - this.window.y) * (this.x / this.width);
-                this.effectY = Math.sin(this.x / this.width * Math.PI * 4) * this.window.height / 14;
+                this.expandWidth = (this.monitor.width - this.icon.width - this.window.x - this.window.width);
+                this.fullWidth = (this.monitor.width - this.icon.width - this.window.x) - this.expandWidth * (1 - this.k);
+                this.width = this.fullWidth - this.j * this.fullWidth;
 
+                this.x = v.tx * this.width;
+                this.y = v.ty * (this.icon.height) +
+                        v.ty * (this.window.height - this.icon.height) * (1 - this.j) * (1 - v.tx) +
+                        v.ty * (this.window.height - this.icon.height) * (1 - this.k) * (v.tx);
+                
+                this.offsetY = (this.icon.y - this.window.y) * (this.x / this.fullWidth) * this.k +
+                               (this.icon.y - this.window.y) * this.j;
+                this.offsetX = this.monitor.width - this.icon.width - this.window.x - this.width -
+                               this.expandWidth * (1 - this.k);
+                
+                if (this.EFFECT === 'sine') {
+                    this.effectY = Math.sin((this.width - this.x) / this.fullWidth * Math.PI * 4) * this.window.height / 14 * this.k;
+                } else {
+                    this.effectY = Math.sin(((this.width - this.x) / this.fullWidth) * 2 * Math.PI + Math.PI) * (this.window.y + this.window.height * v.ty - (this.icon.y + this.icon.height * v.ty)) / 7 * this.k;
+                }
             } else if (this.iconPosition == St.Side.BOTTOM) {
-                this.height = this.monitor.height - this.window.y - this.icon.height;
-                this.y = this.monitor.height - this.icon.height - (this.height - this.j * this.height) * (1 - v.ty) - this.window.y;
-                this.x = v.tx * this.window.width * (this.height - this.y) / this.height + v.tx * this.icon.width * this.y / this.height;
-                this.offsetX = (this.icon.x - this.window.x) * (this.y / this.height);                
-                this.effectX = Math.sin(this.y / this.height * Math.PI * 4) * this.window.width / 14;
+                this.expandHeight = (this.monitor.height - this.icon.height - this.window.y - this.window.height);
+                this.fullHeight = (this.monitor.height - this.icon.height - this.window.y) - this.expandHeight * (1 - this.k);
+                this.height = this.fullHeight - this.j * this.fullHeight;
+                
+                this.y = v.ty * this.height;
+                this.x = v.tx * (this.icon.width) +
+                        v.tx * (this.window.width - this.icon.width) * (1 - this.j) * (1 - v.ty) +
+                        v.tx * (this.window.width - this.icon.width) * (1 - this.k) * (v.ty);
+
+                this.offsetX = (this.icon.x - this.window.x) * (this.y / this.fullHeight) * this.k +
+                               (this.icon.x - this.window.x) * this.j;
+                this.offsetY = this.monitor.height - this.icon.height - this.window.y - this.height -
+                               this.expandHeight * (1 - this.k);
+
+                if (this.EFFECT === 'sine') {
+                    this.effectX = Math.sin((this.height - this.y) / this.fullHeight * Math.PI * 4) * this.window.width / 14 * this.k;
+                } else {
+                    this.effectX = Math.sin(((this.height - this.y) / this.fullHeight) * 2 * Math.PI + Math.PI) * (this.window.x + this.window.width * v.tx - (this.icon.x + this.icon.width * v.tx)) / 7 * this.k;
+                }
             }
             
             v.x = (this.x + this.offsetX + this.effectX) * this.scale;
@@ -160,7 +209,9 @@ var MagicLampMinimizeEffect = GObject.registerClass({},
         }
 
         on_tick_elapsed(timer, msecs) {
-            this.j = timer.get_progress();
+            this.progress = timer.get_progress();
+            this.k = this.progress <= this.split ? this.progress * (1 / 1 / this.split) : 1;
+            this.j = this.progress > this.split ? (this.progress - this.split) * (1 / 1 / (1 - this.split)) : 0;
             this.invalidate();
         }
     }
@@ -173,7 +224,9 @@ var MagicLampUnminimizeEffect = GObject.registerClass({},
         }
 
         on_tick_elapsed(timer, msecs) {
-            this.j = 1 - timer.get_progress();
+            this.progress = timer.get_progress();
+            this.k = 1 - (this.progress > (1 - this.split) ? (this.progress - (1 - this.split)) * (1 / 1 / (1 - (1 - this.split))) : 0);
+            this.j = 1 - (this.progress <= (1 - this.split) ? this.progress * (1 / 1 / (1 - this.split)) : 1);
             this.invalidate();
         }
     }

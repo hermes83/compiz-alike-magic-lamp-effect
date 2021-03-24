@@ -29,6 +29,14 @@ function get_local_gsettings(schema_path) {
 function Prefs() {
     var settings = this.settings = get_local_gsettings(SCHEMA_PATH);
 
+    this.EFFECT = {
+        key: 'effect',
+        get: function () { return settings.get_string(this.key); },
+        set: function (v) { settings.set_string(this.key, v); },
+        changed: function (cb) { return settings.connect('changed::' + this.key, cb); },
+        disconnect: function () { return settings.disconnect.apply(settings, arguments); },
+    };
+
     this.DURATION = {
         key: 'duration',
         get: function () { return settings.get_double(this.key); },

@@ -16,7 +16,7 @@ var DisplaySetting = class DisplaySetting {
     }
 
     static getMonitorScale(monitorIndex) {
-        if (Utils.has_global_display()) {
+        if (Utils.has_global_display() && global.display && global.display.get_monitor_scale) {
             return global.display.get_monitor_scale(monitorIndex);
         } else {
             return 1;
