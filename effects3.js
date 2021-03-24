@@ -84,7 +84,7 @@ var AbstractCommonMagicLampEffect = GObject.registerClass({},
             this.Y_TILES = prefs.Y_TILES.get();
 
             this.initialized = false;
-            // this.i = 0;
+            this.i = 0;
         }
 
         destroyActor(actor) {}
@@ -108,30 +108,15 @@ var AbstractCommonMagicLampEffect = GObject.registerClass({},
 
         vfunc_set_actor(actor) {
             super.vfunc_set_actor(actor);
-        }
 
-        vfunc_post_paint(paintNode, paintContext) {
-            super.vfunc_post_paint(paintNode, paintContext);
+            if (!this.initialized && this.actor) {
+                this.initialized = true;
 
-            let [success, pv_width, pv_height] = this.get_target_size();
-            if (success) {
-                if (!this.initialized && this.actor) {
-                    this.initialized = true;
-    
-                    this.initialize_effect(pv_width, pv_height);
-                }
+                this.initialize_effect(actor.get_width(), actor.get_height());
             }
         }
 
-        vfunc_modify_paint_volume(pv) {
-            // if (++this.i > 5) {
-            //     this.i = 0;
-            // }
-            // return this.i;
-            return false;
-        }
-
-        initialize_effect(width, height) {
+        initialize_effect(width, height) {            
             let currentMonitor = this.monitorConfiguration.getCurrentMonitorGeometry();
             this.scale = this.monitorConfiguration.getScale(this.actor);
 
@@ -215,6 +200,7 @@ var AbstractCommonMagicLampEffect = GObject.registerClass({},
                 (this.window.width * this.window.height)
             );
 
+            this.paintEvent = this.actor.connect('paint', () => {});
             this.newFrameEvent = this.timerId.connect('new-frame', this.on_tick_elapsed.bind(this));
             this.completedEvent = this.timerId.connect('completed', this.destroy.bind(this));
             this.timerId.start();

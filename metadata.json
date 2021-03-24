@@ -1,15 +1,16 @@
 {
   "description": "Magic lamp effect inspired by the Compiz ones",    
   "name": "Compiz alike magic lamp effect",
-  "shell-version": [
+  "shell-version": [    
     "3.28",
     "3.30",
     "3.32",
     "3.34",
     "3.36",
-    "3.38"
+    "3.38",
+    "40.0"    
   ],
   "url": "https://github.com/hermes83/compiz-alike-magic-lamp-effect",
   "uuid": "compiz-alike-magic-lamp-effect@hermes83.github.com",
-  "version": 5
+  "version": 7
 }

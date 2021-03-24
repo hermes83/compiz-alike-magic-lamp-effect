@@ -1,24 +1,49 @@
+
+/*
+ * Compiz-alike-magic-lamp-effect for GNOME Shell
+ *
+ * Copyright (C) 2020
+ *     Mauro Pepe <https://github.com/hermes83/compiz-alike-magic-lamp-effect>
+ *
+ * This file is part of the gnome-shell extension Compiz-alike-magic-lamp-effect.
+ *
+ * gnome-shell extension Compiz-alike-magic-lamp-effect is free software: you can
+ * redistribute it and/or modify it under the terms of the GNU
+ * General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option)
+ * any later version.
+ *
+ * gnome-shell extension Compiz-alike-magic-lamp-effect is distributed in the hope that it
+ * will be useful, but WITHOUT ANY WARRANTY; without even the
+ * implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+ * PURPOSE.  See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with gnome-shell extension Compiz-alike-magic-lamp-effect.  If not, see
+ * <http://www.gnu.org/licenses/>.
+ */
 'use strict';
 
 const Meta = imports.gi.Meta;
 const ExtensionUtils = imports.misc.extensionUtils;
 const Me = ExtensionUtils.getCurrentExtension();
-const Effects = Me.imports.effects;
 const Config = imports.misc.config;
 
-const IS_OLD_SHELL_VERSIONS = Config.PACKAGE_VERSION.startsWith("3.36") ||
-        Config.PACKAGE_VERSION.startsWith("3.34") ||
-        Config.PACKAGE_VERSION.startsWith("3.32") ||
-        Config.PACKAGE_VERSION.startsWith("3.30") ||
-        Config.PACKAGE_VERSION.startsWith("3.28");
-
+const IS_3_XX_SHELL_VERSION = Config.PACKAGE_VERSION.startsWith("3");
+const IS_3_38_SHELL_VERSION = Config.PACKAGE_VERSION.startsWith("3.38");
 const HAS_GLOBAL_DISPLAY = !Config.PACKAGE_VERSION.startsWith("3.28");
 
 const MINIMIZE_EFFECT_NAME = 'minimize-magic-lamp-effect';
 const UNMINIMIZE_EFFECT_NAME = 'unminimize-magic-lamp-effect';
 
-var is_old_shell_versions = function () {
-    return IS_OLD_SHELL_VERSIONS;
+const Effects = IS_3_XX_SHELL_VERSION ? Me.imports.effects3 : Me.imports.effects;
+
+var is_3_xx_shell_version = function () {
+    return IS_3_XX_SHELL_VERSION;
+}
+
+var is_3_38_shell_version = function () {
+    return IS_3_38_SHELL_VERSION;
 }
 
 var has_global_display = function () {
