@@ -9,7 +9,7 @@ const Me = ExtensionUtils.getCurrentExtension();
 const Utils = Me.imports.commonUtils;
 const MonitorUtils = Me.imports.monitorUtils;
 
-const EPSILON = 50;
+const EPSILON = 100;
 
 var AbstractCommonEffect = GObject.registerClass({},
     class AbstractCommonEffect extends Clutter.DeformEffect {
@@ -85,10 +85,10 @@ var AbstractCommonEffect = GObject.registerClass({},
 
                 if (this.icon.x <= EPSILON) {
                     this.iconPosition = St.Side.LEFT;
-                } else if (this.icon.y <= EPSILON) {
-                    this.iconPosition = St.Side.TOP;
                 } else if (this.icon.x >= this.monitor.width - EPSILON) {
                     this.iconPosition = St.Side.RIGHT;
+                } else if (this.icon.y <= EPSILON) {
+                    this.iconPosition = St.Side.TOP;
                 } else {
                     this.iconPosition = St.Side.BOTTOM;
                 }
