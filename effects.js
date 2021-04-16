@@ -84,7 +84,6 @@ var AbstractCommonMagicLampEffect = GObject.registerClass({},
             this.Y_TILES = prefs.Y_TILES.get();
 
             this.initialized = false;
-            // this.i = 0;
         }
 
         destroyActor(actor) {}
@@ -113,9 +112,9 @@ var AbstractCommonMagicLampEffect = GObject.registerClass({},
         vfunc_post_paint(paintNode, paintContext) {
             super.vfunc_post_paint(paintNode, paintContext);
 
-            let [success, pv_width, pv_height] = this.get_target_size();
-            if (success) {
-                if (!this.initialized && this.actor) {
+            if (!this.initialized && this.actor) {
+                let [success, pv_width, pv_height] = this.get_target_size();
+                if (success) {
                     this.initialized = true;
     
                     this.initialize_effect(pv_width, pv_height);
@@ -124,10 +123,6 @@ var AbstractCommonMagicLampEffect = GObject.registerClass({},
         }
 
         vfunc_modify_paint_volume(pv) {
-            // if (++this.i > 5) {
-            //     this.i = 0;
-            // }
-            // return this.i;
             return false;
         }
 

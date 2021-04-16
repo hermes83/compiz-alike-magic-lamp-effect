@@ -64,10 +64,7 @@ function enable() {
             return;
         }
 
-        let [success, icon] = actor.meta_window.get_icon_geometry();
-        if (!success) {
-            icon = {x: 0, y: 0, width: 0, height: 0};
-        }
+        let icon = getIcon(actor);
 
         Utils.destroy_actor_magic_lamp_minimize_effect(actor);
         Utils.destroy_actor_magic_lamp_unminimize_effect(actor);
@@ -83,10 +80,7 @@ function enable() {
             return;
         }
 
-        let [success, icon] = actor.meta_window.get_icon_geometry();
-        if (!success) {
-            icon = {x: 0, y: 0, width: 0, height: 0};
-        }
+        let icon = getIcon(actor);
 
         Utils.destroy_actor_magic_lamp_minimize_effect(actor);
         Utils.destroy_actor_magic_lamp_unminimize_effect(actor);
@@ -119,5 +113,46 @@ function disable() {
     if (Main.wm._shellwm.original_completed_unminimize) {
         Main.wm._shellwm.completed_unminimize = Main.wm._shellwm.original_completed_unminimize;    
         Main.wm._shellwm.original_completed_unminimize = null;
+    }
+}
+
+function getIcon(actor) {
+    let [success, icon] = actor.meta_window.get_icon_geometry();
+    if (success) { 
+        return icon;
+    } else {
+        let monitor = Main.layoutManager.monitors[actor.meta_window.get_monitor()];
+        if (!monitor) {
+            return {x: 0, y: 0, width: 0, height: 0};    
+        } else {
+            if (Main.overview.dash) {
+                let dash = Main.overview.dash;
+                dash._redisplay();  
+
+                let dashIcon = null;
+                let transformed_position = null;
+                let pids = null;
+                let pid = actor.get_meta_window() ? actor.get_meta_window().get_pid() : null;
+                if (pid) {
+                    dash._box.get_children()
+                        .filter(dashElement => dashElement.child && dashElement.child._delegate && dashElement.child._delegate.app)
+                        .forEach(dashElement => {
+                            pids = dashElement.child._delegate.app.get_pids();
+                            if (pids && pids.indexOf(pid) >= 0) {
+                                transformed_position = dashElement.get_transformed_position();
+                                if (transformed_position && transformed_position[0]) {
+                                    dashIcon = {x: transformed_position[0], y: monitor.y + monitor.height, width: 0, height: 0};
+                                    return;
+                                }
+                            }
+                        });
+                }
+                if (dashIcon) {
+                    return dashIcon;
+                }
+            }
+
+            return {x: monitor.x + monitor.width / 2, y: monitor.y + monitor.height, width: 0, height: 0};
+        } 
     }
 }
