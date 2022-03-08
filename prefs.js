@@ -72,7 +72,13 @@ function buildPrefsWidget() {
 }
 
 function addDefaultButton(frame, config) {
-    let button = new Gtk.Button({label: "Reset to default"});
+    let button = null;
+    if (IS_3_XX_SHELL_VERSION) {
+        button = new Gtk.Button({label: "Reset to default"});
+    } else {
+        button = new Gtk.Button({label: "Reset to default", vexpand: true, valign: Gtk.Align.END});
+    }
+
     button.connect('clicked', function () {
         config.EFFECT.set("default");
         config.DURATION.set(500.0);
@@ -104,6 +110,9 @@ function addSlider(frame, labelText, prefConfig, lower, upper, decimalDigits) {
         hexpand: true, 
         halign: Gtk.Align.END
     });
+    if (!IS_3_XX_SHELL_VERSION) {
+        scale.set_draw_value(true);
+    }
     scale.set_value(prefConfig.get());
     scale.connect('value-changed', function (sw) {
         var newval = sw.get_value();

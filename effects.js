@@ -130,6 +130,11 @@ var AbstractCommonMagicLampEffect = GObject.registerClass({},
             let currentMonitor = this.monitorConfiguration.getCurrentMonitorGeometry();
             this.scale = this.monitorConfiguration.getScale(this.actor);
 
+            if (!this.icon || (this.icon.x == 0 && this.icon.y == 0 && this.icon.width == 0 && this.icon.height == 0)) {
+                this.icon.x = currentMonitor.x + currentMonitor.width / 2;
+                this.icon.y = currentMonitor.height + currentMonitor.y;
+            }
+
             [this.monitor.x, this.monitor.y, this.monitor.width, this.monitor.height] = [currentMonitor.x, currentMonitor.y, currentMonitor.width, currentMonitor.height];
             [this.window.x, this.window.y, this.window.width, this.window.height] = [this.actor.get_x() - currentMonitor.x, this.actor.get_y() - currentMonitor.y, width, height];
             [this.icon.x, this.icon.y, this.icon.width, this.icon.height] = [this.icon.x - currentMonitor.x, this.icon.y - currentMonitor.y, this.icon.width, this.icon.height];
@@ -198,12 +203,7 @@ var AbstractCommonMagicLampEffect = GObject.registerClass({},
 
             this.set_n_tiles(this.X_TILES, this.Y_TILES);
             
-            if (Utils.is_3_xx_shell_version() && !Utils.is_3_38_shell_version()) {
-                this.timerId = new Clutter.Timeline();
-            } else {
-                this.timerId = new Clutter.Timeline({ actor: this.actor });
-            }
-
+            this.timerId = new Clutter.Timeline({ actor: this.actor });
             this.timerId.set_duration(
                 this.DURATION +
                 (this.monitor.width * this.monitor.height) /
