@@ -148,43 +148,40 @@ class CompizMagicLampEffectExtension {
 
     getIcon(actor) {
         let [success, icon] = actor.meta_window.get_icon_geometry();
-        if (success) { 
+        if (success) {
             return icon;
-        } else {
-            let monitor = Main.layoutManager.monitors[actor.meta_window.get_monitor()];
-            if (!monitor) {
-                return {x: 0, y: 0, width: 0, height: 0};    
-            } else {
-                if (Main.overview.dash) {
-                    let dash = Main.overview.dash;
-                    dash._redisplay();  
+        } 
     
-                    let dashIcon = null;
-                    let transformed_position = null;
-                    let pids = null;
-                    let pid = actor.get_meta_window() ? actor.get_meta_window().get_pid() : null;
-                    if (pid) {
-                        dash._box.get_children()
-                            .filter(dashElement => dashElement.child && dashElement.child._delegate && dashElement.child._delegate.app)
-                            .forEach(dashElement => {
-                                pids = dashElement.child._delegate.app.get_pids();
-                                if (pids && pids.indexOf(pid) >= 0) {
-                                    transformed_position = dashElement.get_transformed_position();
-                                    if (transformed_position && transformed_position[0]) {
-                                        dashIcon = {x: transformed_position[0], y: monitor.y + monitor.height, width: 0, height: 0};
-                                        return;
-                                    }
-                                }
-                            });
-                    }
-                    if (dashIcon) {
-                        return dashIcon;
-                    }
-                }
-    
-                return {x: monitor.x + monitor.width / 2, y: monitor.y + monitor.height, width: 0, height: 0};
-            } 
+        let monitor = Main.layoutManager.monitors[actor.meta_window.get_monitor()];
+        if (monitor && Main.overview.dash) {
+            Main.overview.dash._redisplay();  
+
+            let dashIcon = null;
+            let transformed_position = null;
+            let pids = null;
+            let pid = actor.get_meta_window() ? actor.get_meta_window().get_pid() : null;
+            if (pid) {
+                Main.overview.dash._box.get_children()
+                    .filter(dashElement => dashElement.child && dashElement.child._delegate && dashElement.child._delegate.app)
+                    .forEach(dashElement => {
+                        pids = dashElement.child._delegate.app.get_pids();
+                        if (pids && pids.indexOf(pid) >= 0) {
+                            transformed_position = dashElement.get_transformed_position();
+                            if (transformed_position && transformed_position[0]) {
+                                dashIcon = {x: transformed_position[0], y: monitor.y + monitor.height, width: 0, height: 0};
+                                return;
+                            }
+                        }
+                    });
+            }
+            if (dashIcon) {
+                return dashIcon;
+            }
+
+            return {x: monitor.x + monitor.width / 2, y: monitor.y + monitor.height, width: 0, height: 0};
         }
+
+        return {x: 0, y: 0, width: 0, height: 0};    
     }
 
     destroyActorEffect(actor) {
@@ -242,7 +239,7 @@ const AbstractCommonMagicLampEffect = GObject.registerClass({},
             this.effectY = 0;
             this.iconPosition = null;
 
-            this.toTheBorder = false;   // true
+            this.toTheBorder = true;   // true
             this.maxIconSize = null;    // 48
             this.alignIcon = 'center';  // 'left-top'
 
@@ -298,13 +295,29 @@ const AbstractCommonMagicLampEffect = GObject.registerClass({},
 
             if (this.icon.y + this.icon.height >= this.monitor.height - this.EPSILON) {
                 this.iconPosition = St.Side.BOTTOM;
+                if (this.toTheBorder) {
+                    this.icon.y = this.iconMonitor.y + this.iconMonitor.height - this.monitor.y
+                    this.icon.height = 0;
+                }
             } else if (this.icon.x <= this.EPSILON) {
                 this.iconPosition = St.Side.LEFT;
+                if (this.toTheBorder) {
+                    this.icon.x = this.iconMonitor.x - this.monitor.x;
+                    this.icon.width = 0;
+                }
             } else if (this.icon.x + this.icon.width >= this.monitor.width - this.EPSILON) {
                 this.iconPosition = St.Side.RIGHT;
+                if (this.toTheBorder) {
+                    this.icon.x = this.iconMonitor.x + this.iconMonitor.width - this.monitor.x;
+                    this.icon.width = 0;
+                }
             } else {
                 this.iconPosition = St.Side.TOP;
-            } 
+                if (this.toTheBorder) {
+                    this.icon.y = this.iconMonitor.y - this.monitor.y;
+                    this.icon.height = 0;
+                }
+            }
 
             this.set_n_tiles(this.X_TILES, this.Y_TILES);
             
@@ -436,6 +449,7 @@ const MagicLampMinimizeEffectBase = GObject.registerClass({},
             this.k = 0;
             this.j = 0;
             this.isMinimizeEffect = true;
+        
         }
 
         destroy_actor(actor) {
