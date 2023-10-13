@@ -436,6 +436,8 @@ class MagicLampMinimizeEffect extends AbstractCommonMagicLampEffect {
         this.progress = timer.get_progress();
         this.k = this.progress <= this.split ? this.progress * (1 / 1 / this.split) : 1;
         this.j = this.progress > this.split ? (this.progress - this.split) * (1 / 1 / (1 - this.split)) : 0;
+
+        this.actor.get_parent().queue_redraw();
         this.invalidate();
     }
 
@@ -464,11 +466,13 @@ class MagicLampUnminimizeEffect extends AbstractCommonMagicLampEffect {
     on_tick_elapsed(timer, msecs) {
         if (Main.overview.visible) {
             this.destroy();
-        }
+        }   
 
         this.progress = timer.get_progress();
         this.k = 1 - (this.progress > (1 - this.split) ? (this.progress - (1 - this.split)) * (1 / 1 / (1 - (1 - this.split))) : 0);
         this.j = 1 - (this.progress <= (1 - this.split) ? this.progress * (1 / 1 / (1 - this.split)) : 1);
+
+        this.actor.get_parent().queue_redraw();
         this.invalidate();
     }
 
