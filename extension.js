@@ -287,8 +287,8 @@ const AbstractCommonMagicLampEffect = GObject.registerClass({},
             });
             if (this.iconMonitor.x == 0 && this.iconMonitor.y == 0 && this.iconMonitor.width == 0 && this.iconMonitor.height == 0) {
                 this.iconMonitor = this.monitor;
-                this.icon.x = this.monitor.x + this.monitor.width / 2;
-                this.icon.y = this.monitor.height + this.monitor.y;
+                // this.icon.x = this.monitor.x + this.monitor.width / 2;
+                // this.icon.y = this.monitor.height + this.monitor.y;
             }
 
             [this.icon.x, this.icon.y, this.icon.width, this.icon.height] = [this.icon.x - this.monitor.x, this.icon.y - this.monitor.y, this.icon.width, this.icon.height];
