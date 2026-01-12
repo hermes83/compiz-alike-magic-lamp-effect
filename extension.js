@@ -26,6 +26,7 @@
 
 import GObject from 'gi://GObject';
 import Clutter from 'gi://Clutter';
+import GLib from 'gi://GLib';
 import St from 'gi://St';
 
 import { Extension } from 'resource:///org/gnome/shell/extensions/extension.js';
@@ -40,6 +41,13 @@ const UNMINIMIZE_EFFECT_NAME = 'unminimize-magic-lamp-effect';
 export default class CompizMagicLampEffectExtension extends Extension {
 
     enable() {
+        this._enableTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 250, () => {
+            this._main_login();
+            return GLib.SOURCE_REMOVE;
+        });
+    }
+
+    _main_login() {
         this.settingsData = new SettingsData(this.getSettings());
 
         // https://github.com/GNOME/gnome-shell/blob/master/js/ui/windowManager.js
