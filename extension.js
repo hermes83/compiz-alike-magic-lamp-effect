@@ -53,22 +53,22 @@ export default class CompizMagicLampEffectExtension extends Extension {
         // https://github.com/GNOME/gnome-shell/blob/master/js/ui/windowManager.js
 
         Main.wm.original_minimizeMaximizeWindow_shouldAnimateActor = Main.wm._shouldAnimateActor;
-        Main.wm._shouldAnimateActor = function(actor, types) {
+        Main.wm._shouldAnimateActor = function (actor, types) {
             let stack = new Error().stack;
             if (stack && (stack.indexOf("_minimizeWindow") !== -1 || stack.indexOf("_unminimizeWindow") !== -1)) {
                 return false;
             }
-            
+
             return Main.wm.original_minimizeMaximizeWindow_shouldAnimateActor(actor, types);
         };
 
         Main.wm._shellwm.original_completed_minimize = Main.wm._shellwm.completed_minimize;
-        Main.wm._shellwm.completed_minimize = function(actor) {
+        Main.wm._shellwm.completed_minimize = function (actor) {
             return;
         };
 
         Main.wm._shellwm.original_completed_unminimize = Main.wm._shellwm.completed_unminimize;
-        Main.wm._shellwm.completed_unminimize = function(actor) {
+        Main.wm._shellwm.completed_unminimize = function (actor) {
             return;
         };
 
@@ -82,7 +82,7 @@ export default class CompizMagicLampEffectExtension extends Extension {
 
             this.destroyActorEffect(actor);
 
-            actor.add_effect_with_name(MINIMIZE_EFFECT_NAME, new MagicLampMinimizeEffect({settingsData: this.settingsData, icon: icon}));
+            actor.add_effect_with_name(MINIMIZE_EFFECT_NAME, new MagicLampMinimizeEffect({ settingsData: this.settingsData, icon: icon }));
         });
 
         this.unminimizeId = global.window_manager.connect("unminimize", (e, actor) => {
@@ -97,11 +97,15 @@ export default class CompizMagicLampEffectExtension extends Extension {
 
             this.destroyActorEffect(actor);
 
-            actor.add_effect_with_name(UNMINIMIZE_EFFECT_NAME, new MagicLampUnminimizeEffect({settingsData: this.settingsData, icon: icon}));
+            actor.add_effect_with_name(UNMINIMIZE_EFFECT_NAME, new MagicLampUnminimizeEffect({ settingsData: this.settingsData, icon: icon }));
         });
     }
 
     disable() {
+        if (this._enableTimeoutId) {
+            GLib.Source.remove(this._enableTimeoutId);
+            this._enableTimeoutId = null;
+        }
         if (this.settingsData) {
             this.settingsData = null;
         }
@@ -111,11 +115,11 @@ export default class CompizMagicLampEffectExtension extends Extension {
         if (this.minimizeId) {
             global.window_manager.disconnect(this.unminimizeId);
         }
-    
+
         global.get_window_actors().forEach((actor) => {
             this.destroyActorEffect(actor);
         });
-        
+
         if (Main.wm.original_minimizeMaximizeWindow_shouldAnimateActor) {
             Main.wm._shouldAnimateActor = Main.wm.original_minimizeMaximizeWindow_shouldAnimateActor;
             Main.wm.original_minimizeMaximizeWindow_shouldAnimateActor = null;
@@ -125,7 +129,7 @@ export default class CompizMagicLampEffectExtension extends Extension {
             Main.wm._shellwm.original_completed_minimize = null;
         }
         if (Main.wm._shellwm.original_completed_unminimize) {
-            Main.wm._shellwm.completed_unminimize = Main.wm._shellwm.original_completed_unminimize;    
+            Main.wm._shellwm.completed_unminimize = Main.wm._shellwm.original_completed_unminimize;
             Main.wm._shellwm.original_completed_unminimize = null;
         }
     }
@@ -134,11 +138,11 @@ export default class CompizMagicLampEffectExtension extends Extension {
         let [success, icon] = actor.meta_window.get_icon_geometry();
         if (success) {
             return icon;
-        } 
-    
+        }
+
         let monitor = Main.layoutManager.monitors[actor.meta_window.get_monitor()];
         if (monitor && Main.overview.dash) {
-            Main.overview.dash._redisplay();  
+            Main.overview.dash._redisplay();
 
             let dashIcon = null;
             let transformed_position = null;
@@ -152,7 +156,7 @@ export default class CompizMagicLampEffectExtension extends Extension {
                         if (pids && pids.indexOf(pid) >= 0) {
                             transformed_position = dashElement.get_transformed_position();
                             if (transformed_position && transformed_position[0]) {
-                                dashIcon = {x: transformed_position[0], y: monitor.y + monitor.height, width: 0, height: 0};
+                                dashIcon = { x: transformed_position[0], y: monitor.y + monitor.height, width: 0, height: 0 };
                                 return;
                             }
                         }
@@ -162,10 +166,10 @@ export default class CompizMagicLampEffectExtension extends Extension {
                 return dashIcon;
             }
 
-            return {x: monitor.x + monitor.width / 2, y: monitor.y + monitor.height, width: 0, height: 0};
+            return { x: monitor.x + monitor.width / 2, y: monitor.y + monitor.height, width: 0, height: 0 };
         }
 
-        return {x: 0, y: 0, width: 0, height: 0};    
+        return { x: 0, y: 0, width: 0, height: 0 };
     }
 
     destroyActorEffect(actor) {
@@ -188,7 +192,7 @@ export default class CompizMagicLampEffectExtension extends Extension {
 class AbstractCommonMagicLampEffect extends Clutter.DeformEffect {
     static {
         GObject.registerClass(this);
-    }    
+    }
 
     _init(params = {}) {
         super._init();
@@ -200,15 +204,15 @@ class AbstractCommonMagicLampEffect extends Clutter.DeformEffect {
         this.isMinimizeEffect = false;
         this.newFrameEvent = null;
         this.completedEvent = null;
-        
+
         this.timerId = null;
         this.msecs = 0;
 
-        this.monitor = {x: 0, y: 0, width: 0, height: 0};
-        this.iconMonitor = {x: 0, y: 0, width: 0, height: 0};
-        this.window = {x: 0, y: 0, width: 0, height: 0, scale: 1};
+        this.monitor = { x: 0, y: 0, width: 0, height: 0 };
+        this.iconMonitor = { x: 0, y: 0, width: 0, height: 0 };
+        this.window = { x: 0, y: 0, width: 0, height: 0, scale: 1 };
         this.icon = params.icon;
-        
+
         this.progress = 0;
         this.split = 0.3;
         this.k = 0;
@@ -239,9 +243,9 @@ class AbstractCommonMagicLampEffect extends Clutter.DeformEffect {
         this.initialized = false;
     }
 
-    destroy_actor(actor) {}
+    destroy_actor(actor) { }
 
-    on_tick_elapsed(timer, msecs) {}
+    on_tick_elapsed(timer, msecs) { }
 
     vfunc_set_actor(actor) {
         super.vfunc_set_actor(actor);
@@ -251,24 +255,24 @@ class AbstractCommonMagicLampEffect extends Clutter.DeformEffect {
         }
 
         this.initialized = true;
-        
+
         this.monitor = Main.layoutManager.monitors[actor.meta_window.get_monitor()];
 
         [this.window.x, this.window.y] = [this.actor.get_x() - this.monitor.x, this.actor.get_y() - this.monitor.y];
         [this.window.width, this.window.height] = actor.get_size();
-        
+
         if (!this.icon || (this.icon.x == 0 && this.icon.y == 0 && this.icon.width == 0 && this.icon.height == 0)) {
             this.icon.x = this.monitor.x + this.monitor.width / 2;
             this.icon.y = this.monitor.height + this.monitor.y;
         }
 
-        Main.layoutManager.monitors.forEach((monitor, monitorIndex)  => {
+        Main.layoutManager.monitors.forEach((monitor, monitorIndex) => {
             let scale = 1;
             if (global.display && global.display.get_monitor_scale) {
                 scale = global.display.get_monitor_scale(monitorIndex);
             }
 
-            if (this.icon.x >= monitor.x && this.icon.x <= monitor.x + monitor.width * scale && this.icon.y >= monitor.y && this.icon.y <= monitor.y + monitor.height * scale)  {
+            if (this.icon.x >= monitor.x && this.icon.x <= monitor.x + monitor.width * scale && this.icon.y >= monitor.y && this.icon.y <= monitor.y + monitor.height * scale) {
                 this.iconMonitor = monitor;
             }
         });
@@ -307,7 +311,7 @@ class AbstractCommonMagicLampEffect extends Clutter.DeformEffect {
         }
 
         this.set_n_tiles(this.X_TILES, this.Y_TILES);
-        
+
         this.timerId = new Clutter.Timeline({ actor: this.actor, duration: this.DURATION + (this.monitor.width * this.monitor.height) / (this.window.width * this.window.height) });
         this.newFrameEvent = this.timerId.connect('new-frame', this.on_tick_elapsed.bind(this));
         this.completedEvent = this.timerId.connect('completed', this.destroy.bind(this));
@@ -347,9 +351,9 @@ class AbstractCommonMagicLampEffect extends Clutter.DeformEffect {
             if (this.iconPosition == St.Side.LEFT) {
                 this.width = this.window.width - this.icon.width + this.window.x * this.k;
 
-                this.x = (this.width - this.j * this.width) * v.tx;  
-                this.y = v.ty * this.window.height * (this.x + (this.width - this.x) * (1 - this.k)) / this.width + 
-                        v.ty * this.icon.height * (this.width - this.x) / this.width;
+                this.x = (this.width - this.j * this.width) * v.tx;
+                this.y = v.ty * this.window.height * (this.x + (this.width - this.x) * (1 - this.k)) / this.width +
+                    v.ty * this.icon.height * (this.width - this.x) / this.width;
 
                 this.offsetX = this.icon.width - this.window.x * this.k;
                 this.offsetY = (this.icon.y - this.window.y) * ((this.width - this.x) / this.width) * this.k;
@@ -363,8 +367,8 @@ class AbstractCommonMagicLampEffect extends Clutter.DeformEffect {
                 this.height = this.window.height - this.icon.height + this.window.y * this.k;
 
                 this.y = (this.height - this.j * this.height) * v.ty;
-                this.x = v.tx * this.window.width * (this.y + (this.height - this.y) * (1 - this.k)) / this.height + 
-                        v.tx * this.icon.width * (this.height - this.y) / this.height;
+                this.x = v.tx * this.window.width * (this.y + (this.height - this.y) * (1 - this.k)) / this.height +
+                    v.tx * this.icon.width * (this.height - this.y) / this.height;
 
                 this.offsetX = (this.icon.x - this.window.x) * ((this.height - this.y) / this.height) * this.k;
                 this.offsetY = this.icon.height - this.window.y * this.k;
@@ -381,12 +385,12 @@ class AbstractCommonMagicLampEffect extends Clutter.DeformEffect {
 
                 this.x = v.tx * this.width;
                 this.y = v.ty * (this.icon.height) +
-                        v.ty * (this.window.height - this.icon.height) * (1 - this.j) * (1 - v.tx) +
-                        v.ty * (this.window.height - this.icon.height) * (1 - this.k) * (v.tx);
-                
+                    v.ty * (this.window.height - this.icon.height) * (1 - this.j) * (1 - v.tx) +
+                    v.ty * (this.window.height - this.icon.height) * (1 - this.k) * (v.tx);
+
                 this.offsetY = (this.icon.y - this.window.y) * (this.x / this.fullWidth) * this.k + (this.icon.y - this.window.y) * this.j;
                 this.offsetX = this.iconMonitor.width - this.icon.width - this.window.x - this.width - this.expandWidth * (1 - this.k);
-                
+
                 if (this.EFFECT === 'sine') {
                     this.effectY = Math.sin((this.width - this.x) / this.fullWidth * Math.PI * 4) * this.window.height / 14 * this.k;
                 } else {
@@ -396,11 +400,11 @@ class AbstractCommonMagicLampEffect extends Clutter.DeformEffect {
                 this.expandHeight = (this.iconMonitor.height - this.icon.height - this.window.y - this.window.height);
                 this.fullHeight = (this.iconMonitor.height - this.icon.height - this.window.y) - this.expandHeight * (1 - this.k);
                 this.height = this.fullHeight - this.j * this.fullHeight;
-                
+
                 this.y = v.ty * this.height;
                 this.x = v.tx * (this.icon.width) +
-                        v.tx * (this.window.width - this.icon.width) * (1 - this.j) * (1 - v.ty) +
-                        v.tx * (this.window.width - this.icon.width) * (1 - this.k) * (v.ty);
+                    v.tx * (this.window.width - this.icon.width) * (1 - this.j) * (1 - v.ty) +
+                    v.tx * (this.window.width - this.icon.width) * (1 - this.k) * (v.ty);
 
                 this.offsetX = (this.icon.x - this.window.x) * (this.y / this.fullHeight) * this.k + (this.icon.x - this.window.x) * this.j;
                 this.offsetY = this.iconMonitor.height - this.icon.height - this.window.y - this.height - this.expandHeight * (1 - this.k);
@@ -411,10 +415,10 @@ class AbstractCommonMagicLampEffect extends Clutter.DeformEffect {
                     this.effectX = Math.sin(((this.height - this.y) / this.fullHeight) * 2 * Math.PI + Math.PI) * (this.window.x + this.window.width * v.tx - (this.icon.x + this.icon.width * v.tx)) / 7 * this.k;
                 }
             }
-            
+
             v.x = (this.x + this.offsetX + this.effectX) * propX;
             v.y = (this.y + this.offsetY + this.effectY) * propY;
-        }    
+        }
     }
 }
 
@@ -422,14 +426,14 @@ class MagicLampMinimizeEffect extends AbstractCommonMagicLampEffect {
     static {
         GObject.registerClass(this);
     }
-       
+
     _init(params = {}) {
         super._init(params);
 
         this.k = 0;
         this.j = 0;
         this.isMinimizeEffect = true;
-    
+
     }
 
     destroy_actor(actor) {
@@ -453,7 +457,7 @@ class MagicLampMinimizeEffect extends AbstractCommonMagicLampEffect {
         return false;
     }
 }
-    
+
 class MagicLampUnminimizeEffect extends AbstractCommonMagicLampEffect {
     static {
         GObject.registerClass(this);
@@ -466,7 +470,7 @@ class MagicLampUnminimizeEffect extends AbstractCommonMagicLampEffect {
         this.j = 1;
         this.isMinimizeEffect = false;
     }
-    
+
     destroy_actor(actor) {
         Main.wm._shellwm.original_completed_unminimize(actor);
     }
@@ -474,7 +478,7 @@ class MagicLampUnminimizeEffect extends AbstractCommonMagicLampEffect {
     on_tick_elapsed(timer, msecs) {
         if (Main.overview.visible) {
             this.destroy();
-        }   
+        }
 
         this.progress = timer.get_progress();
         this.k = 1 - (this.progress > (1 - this.split) ? (this.progress - (1 - this.split)) * (1 / 1 / (1 - (1 - this.split))) : 0);
