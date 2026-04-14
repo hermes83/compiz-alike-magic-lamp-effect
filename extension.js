@@ -44,15 +44,17 @@ export default class CompizMagicLampEffectExtension extends Extension {
 
         // https://github.com/GNOME/gnome-shell/blob/master/js/ui/windowManager.js
 
-        Main.wm.original_minimizeMaximizeWindow_shouldAnimateActor = Main.wm._shouldAnimateActor;
-        Main.wm._shouldAnimateActor = function(actor, types) {
-            let stack = new Error().stack;
-            if (stack && (stack.indexOf("_minimizeWindow") !== -1 || stack.indexOf("_unminimizeWindow") !== -1)) {
-                return false;
-            }
-            
-            return Main.wm.original_minimizeMaximizeWindow_shouldAnimateActor(actor, types);
-        };
+        if (Main.wm._shouldAnimateActor) {
+            Main.wm.original_minimizeMaximizeWindow_shouldAnimateActor = Main.wm._shouldAnimateActor;
+            Main.wm._shouldAnimateActor = function(actor, types) {
+                let stack = new Error().stack;
+                if (stack && (stack.indexOf("_minimizeWindow") !== -1 || stack.indexOf("_unminimizeWindow") !== -1)) {
+                    return false;
+                }
+                
+                return Main.wm.original_minimizeMaximizeWindow_shouldAnimateActor(actor, types);
+            };
+        }
 
         Main.wm._shellwm.original_completed_minimize = Main.wm._shellwm.completed_minimize;
         Main.wm._shellwm.completed_minimize = function(actor) {
@@ -99,9 +101,11 @@ export default class CompizMagicLampEffectExtension extends Extension {
         }
         if (this.minimizeId) {
             global.window_manager.disconnect(this.minimizeId);
+            this.minimizeId = null;
         }
-        if (this.minimizeId) {
+        if (this.unminimizeId) {
             global.window_manager.disconnect(this.unminimizeId);
+            this.unminimizeId = null;
         }
     
         global.get_window_actors().forEach((actor) => {
