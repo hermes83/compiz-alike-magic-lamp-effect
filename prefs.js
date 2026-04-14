@@ -36,52 +36,61 @@ export default class Prefs extends ExtensionPreferences {
     fillPreferencesWindow(window) {
         const settingsData = new SettingsData(this.getSettings());
 
-        const width = 750;
-        const height = 380;
-        window.set_default_size(width, height);
-
-        const page = Adw.PreferencesPage.new();
+        const fields = {
+            effectComboBox: this.addComboBox(settingsData.EFFECT),
+            durationSlider: this.addSlider(settingsData.DURATION, 100.0, 1000.0, 0),
+            xTilesSlider: this.addSlider(settingsData.X_TILES, 3.0, 50.0, 0),
+            yTilesSlider: this.addSlider(settingsData.Y_TILES, 3.0, 50.0, 0)
+        };
 
         const group1 = Adw.PreferencesGroup.new();
-        this.effectComboBox = this.addComboBox(group1, "Effect", settingsData.EFFECT);
-        this.durationSlider = this.addSlider(group1, "Duration (ms)", settingsData.DURATION, 100.0, 1000.0, 0);
-        page.add(group1);
-        
+        group1.add(this.newRow("Effect", fields.effectComboBox));
+        group1.add(this.newRow("Duration (ms)", fields.durationSlider));
+
         const group2 = Adw.PreferencesGroup.new();
-        this.xTilesSlider = this.addSlider(group2, "X Tiles", settingsData.X_TILES, 3.0, 50.0, 0);
-        this.yTilesSlider = this.addSlider(group2, "Y Tiles", settingsData.Y_TILES, 3.0, 50.0, 0);
+        group2.add(this.newRow("X Tiles", fields.xTilesSlider));
+        group2.add(this.newRow("Y Tiles", fields.yTilesSlider));
+
+        const page = Adw.PreferencesPage.new();
+        page.add(group1);
         page.add(group2);
-
-        this.addResetButton(window, settingsData);
-
-        window.add(page);
-    }
-
-    addResetButton(window, settingsData) {
-        const button = new Gtk.Button({vexpand: true, valign: Gtk.Align.END});
-        button.set_icon_name('edit-clear');
-
-        button.connect('clicked', () => {
-            settingsData.EFFECT.set("default");
-            settingsData.DURATION.set(500.0);
-            settingsData.X_TILES.set(15.0);
-            settingsData.Y_TILES.set(20.0);
-
-            this.effectComboBox.set_active(0);
-            this.durationSlider.set_value(settingsData.DURATION.get());
-            this.xTilesSlider.set_value(settingsData.X_TILES.get());
-            this.yTilesSlider.set_value(settingsData.Y_TILES.get());
-        });
 
         const header = this.findWidgetByType(window.get_content(), Adw.HeaderBar);
         if (header) {
-            header.pack_start(button);            
+            const resetButton = this.newResetButton();
+            resetButton.connect('clicked', () => {
+                settingsData.EFFECT.set("default");
+                settingsData.DURATION.set(500.0);
+                settingsData.X_TILES.set(15.0);
+                settingsData.Y_TILES.set(20.0);
+
+                fields.effectComboBox.set_active(0);
+                fields.durationSlider.set_value(settingsData.DURATION.get());
+                fields.xTilesSlider.set_value(settingsData.X_TILES.get());
+                fields.yTilesSlider.set_value(settingsData.Y_TILES.get());
+            });
+
+            header.pack_start(resetButton);
         }
-        
+
+        window.set_default_size(750, 380);
+        window.add(page);
+    }
+
+    newResetButton() {
+        const button = new Gtk.Button({vexpand: true, valign: Gtk.Align.END});
+        button.set_icon_name('edit-clear');
         return button;
     }
     
-    addSlider(group, labelText, settingsData, lower, upper, decimalDigits) {
+    newRow(labelText, field) {
+        const row = Adw.ActionRow.new();
+        row.set_title(labelText);
+        row.add_suffix(field);
+        return row;
+    }
+
+    addSlider(settingsData, lower, upper, decimalDigits) {
         const scale = new Gtk.Scale({
             digits: decimalDigits,
             adjustment: new Gtk.Adjustment({lower: lower, upper: upper}),
@@ -99,15 +108,10 @@ export default class Prefs extends ExtensionPreferences {
         });
         scale.set_size_request(400, 15);
 
-        const row = Adw.ActionRow.new();
-        row.set_title(labelText);
-        row.add_suffix(scale);
-        group.add(row);
-
         return scale;
     }
 
-    addComboBox(group, labelText, settingsData) {
+    addComboBox(settingsData) {
         let gtkComboBoxText = new Gtk.ComboBoxText({hexpand: true, halign: Gtk.Align.END});
         gtkComboBoxText.set_valign(Gtk.Align.CENTER);
 
@@ -123,22 +127,17 @@ export default class Prefs extends ExtensionPreferences {
         }
 
         gtkComboBoxText.set_active(activeIndex);
-        gtkComboBoxText.connect('changed', function (sw) {
+        gtkComboBoxText.connect('changed', (sw) => {
             var newval = values[sw.get_active()];
             if (newval != settingsData.get()) {
                 settingsData.set(newval);
             }
         });
-
-        const row = Adw.ActionRow.new();
-        row.set_title(labelText);
-        row.add_suffix(gtkComboBoxText);
-        group.add(row);
         
         return gtkComboBoxText;
     }
     
-    addBooleanSwitch(group, labelText, settingsData) {
+    addBooleanSwitch(settingsData) {
         const gtkSwitch = new Gtk.Switch({hexpand: true, halign: Gtk.Align.END});
         gtkSwitch.set_active(settingsData.get());
         gtkSwitch.set_valign(Gtk.Align.CENTER);
@@ -148,11 +147,6 @@ export default class Prefs extends ExtensionPreferences {
                 settingsData.set(newval);
             }
         });
-
-        const row = Adw.ActionRow.new();
-        row.set_title(labelText);
-        row.add_suffix(gtkSwitch);
-        group.add(row);
         
         return gtkSwitch;
     }
