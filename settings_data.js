@@ -32,6 +32,12 @@ export class SettingsData {
             set: function (v) { settings.set_string(this.key, v); }
         };
     
+        this.EASING = {
+            key: 'easing',
+            get: function () { return settings.get_string(this.key); },
+            set: function (v) { settings.set_string(this.key, v); }
+        };
+
         this.DURATION = {
             key: 'duration',
             get: function () { return settings.get_double(this.key); },

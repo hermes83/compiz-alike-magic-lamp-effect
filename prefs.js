@@ -37,7 +37,8 @@ export default class Prefs extends ExtensionPreferences {
         const settingsData = new SettingsData(this.getSettings());
 
         const fields = {
-            effectComboBox: this.addComboBox(settingsData.EFFECT),
+            effectComboBox: this.addComboBox(settingsData.EFFECT, ["default", "sine", "macos"], ["default", "sine", "macOS genie"]),
+            easingComboBox: this.addComboBox(settingsData.EASING, ["auto", "linear", "ease-in", "ease-out", "ease-in-out"]),
             durationSlider: this.addSlider(settingsData.DURATION, 100.0, 1000.0, 0),
             xTilesSlider: this.addSlider(settingsData.X_TILES, 3.0, 50.0, 0),
             yTilesSlider: this.addSlider(settingsData.Y_TILES, 3.0, 50.0, 0)
@@ -45,6 +46,7 @@ export default class Prefs extends ExtensionPreferences {
 
         const group1 = Adw.PreferencesGroup.new();
         group1.add(this.newRow("Effect", fields.effectComboBox));
+        group1.add(this.newRow("Easing", fields.easingComboBox));
         group1.add(this.newRow("Duration (ms)", fields.durationSlider));
 
         const group2 = Adw.PreferencesGroup.new();
@@ -60,11 +62,13 @@ export default class Prefs extends ExtensionPreferences {
             const resetButton = this.newResetButton();
             resetButton.connect('clicked', () => {
                 settingsData.EFFECT.set("default");
+                settingsData.EASING.set("auto");
                 settingsData.DURATION.set(500.0);
                 settingsData.X_TILES.set(15.0);
                 settingsData.Y_TILES.set(20.0);
 
                 fields.effectComboBox.set_active(0);
+                fields.easingComboBox.set_active(0);
                 fields.durationSlider.set_value(settingsData.DURATION.get());
                 fields.xTilesSlider.set_value(settingsData.X_TILES.get());
                 fields.yTilesSlider.set_value(settingsData.Y_TILES.get());
@@ -73,7 +77,7 @@ export default class Prefs extends ExtensionPreferences {
             header.pack_start(resetButton);
         }
 
-        window.set_default_size(750, 380);
+        window.set_default_size(750, 430);
         window.add(page);
     }
 
@@ -111,16 +115,15 @@ export default class Prefs extends ExtensionPreferences {
         return scale;
     }
 
-    addComboBox(settingsData) {
+    addComboBox(settingsData, values, labels = values) {
         let gtkComboBoxText = new Gtk.ComboBoxText({hexpand: true, halign: Gtk.Align.END});
         gtkComboBoxText.set_valign(Gtk.Align.CENTER);
 
         let activeIndex = 0;
         let activeValue = settingsData.get();
-        let values = ["default", "sine"];
 
         for (let i = 0; i < values.length; i++) {
-            gtkComboBoxText.append_text(values[i]);
+            gtkComboBoxText.append_text(labels[i]);
             if (activeValue && activeValue == values[i]) {
                 activeIndex = i;
             }
