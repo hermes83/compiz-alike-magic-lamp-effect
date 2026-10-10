@@ -127,41 +127,118 @@ export default class CompizMagicLampEffectExtension extends Extension {
     }
 
     getIcon(actor) {
+        if (!actor || !actor.meta_window) {
+            return {x: 0, y: 0, width: 0, height: 0};
+        }
+
         let [success, icon] = actor.meta_window.get_icon_geometry();
         if (success) {
             return icon;
-        } 
-    
-        let monitor = Main.layoutManager.monitors[actor.meta_window.get_monitor()];
-        if (monitor && Main.overview.dash) {
-            Main.overview.dash._redisplay();  
+        }
 
-            let dashIcon = null;
-            let transformed_position = null;
-            let pids = null;
-            let pid = actor.get_meta_window() ? actor.get_meta_window().get_pid() : null;
-            if (pid) {
-                Main.overview.dash._box.get_children()
-                    .filter(dashElement => dashElement.child && dashElement.child._delegate && dashElement.child._delegate.app)
-                    .forEach(dashElement => {
-                        pids = dashElement.child._delegate.app.get_pids();
-                        if (pids && pids.indexOf(pid) >= 0) {
-                            transformed_position = dashElement.get_transformed_position();
-                            if (transformed_position && transformed_position[0]) {
-                                dashIcon = {x: transformed_position[0], y: monitor.y + monitor.height, width: 0, height: 0};
-                                return;
-                            }
-                        }
-                    });
-            }
+        let monitor = Main.layoutManager.monitors[actor.meta_window.get_monitor()];
+        if (!monitor) {
+            return {x: 0, y: 0, width: 0, height: 0};
+        }
+
+        let pid = actor.meta_window.get_pid ? actor.meta_window.get_pid() : null;
+        if (pid) {
+            let dashIcon = this._findDashIconGeometry(pid, monitor);
             if (dashIcon) {
                 return dashIcon;
             }
-
-            return {x: monitor.x + monitor.width / 2, y: monitor.y + monitor.height, width: 0, height: 0};
         }
 
-        return {x: 0, y: 0, width: 0, height: 0};    
+        return {x: monitor.x + monitor.width / 2, y: monitor.y + monitor.height, width: 0, height: 0};
+    }
+
+    _findDashIconGeometry(pid, monitor) {
+        let containers = this._getDashContainers();
+        for (let container of containers) {
+            let geometry = this._getIconGeometryFromContainer(container, pid, monitor);
+            if (geometry) {
+                return geometry;
+            }
+        }
+
+        return null;
+    }
+
+    _getDashContainers() {
+        let containers = new Set();
+
+        if (Main.overview.dash && Main.overview.dash._box) {
+            containers.add(Main.overview.dash._box);
+        }
+
+        if (Main.panel && Main.panel.statusArea) {
+            Object.values(Main.panel.statusArea).forEach(widget => {
+                if (!widget) {
+                    return;
+                }
+
+                if (widget._box) {
+                    containers.add(widget._box);
+                }
+
+                if (widget._container) {
+                    containers.add(widget._container);
+                }
+
+                if (widget.dockManager && widget.dockManager.container) {
+                    containers.add(widget.dockManager.container);
+                }
+            });
+        }
+
+        return Array.from(containers).filter(container => container && container.get_children);
+    }
+
+    _getIconGeometryFromContainer(container, pid, monitor) {
+        try {
+            for (let dashElement of container.get_children()) {
+                if (!dashElement || typeof dashElement.get_stage !== 'function' || !dashElement.get_stage()) {
+                    continue;
+                }
+
+                let appButton = dashElement.child ? dashElement.child : dashElement;
+                let delegate = appButton._delegate;
+                let app = delegate ? delegate.app : null;
+                if (!app || typeof app.get_pids !== 'function') {
+                    continue;
+                }
+
+                let pids = app.get_pids();
+                if (!this._pidMatches(pids, pid)) {
+                    continue;
+                }
+
+                let position = dashElement.get_transformed_position();
+                if (position && Number.isFinite(position[0])) {
+                    return {x: position[0], y: monitor.y + monitor.height, width: 0, height: 0};
+                }
+            }
+        } catch (e) {
+            log(`Compiz Magic Lamp: unable to inspect dash container: ${e}`);
+        }
+
+        return null;
+    }
+
+    _pidMatches(pids, pid) {
+        if (!pids) {
+            return false;
+        }
+
+        if (typeof pids.includes === 'function') {
+            return pids.includes(pid);
+        }
+
+        if (typeof pids.indexOf === 'function') {
+            return pids.indexOf(pid) >= 0;
+        }
+
+        return false;
     }
 
     destroyActorEffect(actor) {
