@@ -76,7 +76,18 @@ export default class CompizMagicLampEffectExtension extends Extension {
 
             this.destroyActorEffect(actor);
 
-            actor.add_effect_with_name(MINIMIZE_EFFECT_NAME, new MagicLampMinimizeEffect({settingsData: this.settingsData, icon: icon}));
+            const blurActor = actor.meta_window?.blur_actor ?? null;
+            const restoreBlurActor = blurActor?.visible ?? false;
+            if (blurActor) {
+                blurActor.hide();
+            }
+
+            actor.add_effect_with_name(MINIMIZE_EFFECT_NAME, new MagicLampMinimizeEffect({
+                settingsData: this.settingsData,
+                icon: icon,
+                blurActor,
+                restoreBlurActor,
+            }));
         });
 
         this.unminimizeId = global.window_manager.connect("unminimize", (e, actor) => {
@@ -91,7 +102,18 @@ export default class CompizMagicLampEffectExtension extends Extension {
 
             this.destroyActorEffect(actor);
 
-            actor.add_effect_with_name(UNMINIMIZE_EFFECT_NAME, new MagicLampUnminimizeEffect({settingsData: this.settingsData, icon: icon}));
+            const blurActor = actor.meta_window?.blur_actor ?? null;
+            const restoreBlurActor = blurActor?.visible ?? false;
+            if (blurActor) {
+                blurActor.hide();
+            }
+
+            actor.add_effect_with_name(UNMINIMIZE_EFFECT_NAME, new MagicLampUnminimizeEffect({
+                settingsData: this.settingsData,
+                icon: icon,
+                blurActor,
+                restoreBlurActor,
+            }));
         });
     }
 
@@ -190,6 +212,24 @@ class AbstractCommonMagicLampEffect extends Clutter.DeformEffect {
         super._init();
 
         this.settingsData = params.settingsData;
+        this.blurActor = params.blurActor ?? null;
+        this.restoreBlurActor = params.restoreBlurActor ?? false;
+        this.blurActorVisibleId = 0;
+
+        // Blur My Shell can add a monitor-sized background child to a window
+        // actor. Keep it out of the deformation texture for the complete
+        // animation, including visibility changes triggered by the compositor.
+        if (this.blurActor) {
+            this.blurActor.hide();
+            this.blurActorVisibleId = this.blurActor.connect(
+                'notify::visible',
+                (blurActor) => {
+                    if (blurActor.visible) {
+                        blurActor.hide();
+                    }
+                }
+            );
+        }
 
         this.EPSILON = 40;
 
@@ -333,12 +373,33 @@ class AbstractCommonMagicLampEffect extends Clutter.DeformEffect {
 
             this.destroy_actor(actor);
         }
+
+        if (this.blurActorVisibleId && this.blurActor?.get_parent()) {
+            this.blurActor.disconnect(this.blurActorVisibleId);
+        }
+        if (this.restoreBlurActor && this.blurActor?.get_parent()) {
+            this.blurActor.show();
+        }
+
+        this.blurActor = null;
+        this.restoreBlurActor = false;
+        this.blurActorVisibleId = 0;
     }
 
     vfunc_deform_vertex(w, h, v) {
         if (this.initialized) {
-            let propX = w / this.window.width;
-            let propY = h / this.window.height;
+            const rawPropX = w / this.window.width;
+            const rawPropY = h / this.window.height;
+
+            // A compositor effect may expand the paint texture far beyond the
+            // window actor. Those dimensions are not a window-coordinate scale
+            // and would send the genie tail to an unrelated screen position.
+            const expandedPaintVolume =
+                !Number.isFinite(rawPropX) || !Number.isFinite(rawPropY) ||
+                rawPropX < 0.8 || rawPropY < 0.8 ||
+                rawPropX > 1.25 || rawPropY > 1.25;
+            const propX = expandedPaintVolume ? 1 : rawPropX;
+            const propY = expandedPaintVolume ? 1 : rawPropY;
 
             if (this.iconPosition == St.Side.LEFT) {
                 this.width = this.window.width - this.icon.width + this.window.x * this.k;
