@@ -107,7 +107,7 @@ export default class CompizMagicLampEffectExtension extends Extension {
             global.window_manager.disconnect(this.unminimizeId);
             this.unminimizeId = null;
         }
-    
+
         global.get_window_actors().forEach((actor) => {
             this.destroyActorEffect(actor);
         });
@@ -127,19 +127,24 @@ export default class CompizMagicLampEffectExtension extends Extension {
     }
 
     getIcon(actor) {
-        let [success, icon] = actor.meta_window.get_icon_geometry();
+        let metaWindow = actor.meta_window;
+        if (!metaWindow) {
+            return {x: 0, y: 0, width: 0, height: 0};
+        }
+
+        let [success, icon] = metaWindow.get_icon_geometry();
         if (success) {
             return icon;
-        } 
-    
-        let monitor = Main.layoutManager.monitors[actor.meta_window.get_monitor()];
+        }
+
+        let monitor = Main.layoutManager.monitors[metaWindow.get_monitor()];
         if (monitor && Main.overview.dash) {
-            Main.overview.dash._redisplay();  
+            Main.overview.dash._redisplay();
 
             let dashIcon = null;
             let transformed_position = null;
             let pids = null;
-            let pid = actor.get_meta_window() ? actor.get_meta_window().get_pid() : null;
+            let pid = metaWindow.get_pid();
             if (pid) {
                 Main.overview.dash._box.get_children()
                     .filter(dashElement => dashElement.child && dashElement.child._delegate && dashElement.child._delegate.app)
@@ -247,8 +252,16 @@ class AbstractCommonMagicLampEffect extends Clutter.DeformEffect {
         }
 
         this.initialized = true;
-        
-        this.monitor = Main.layoutManager.monitors[actor.meta_window.get_monitor()];
+
+        let metaWindow = actor.meta_window;
+        if (!metaWindow) {
+            return;
+        }
+
+        this.monitor = Main.layoutManager.monitors[metaWindow.get_monitor()];
+        if (!this.monitor) {
+            return;
+        }
 
         [this.window.x, this.window.y] = [this.actor.get_x() - this.monitor.x, this.actor.get_y() - this.monitor.y];
         [this.window.width, this.window.height] = actor.get_size();
@@ -258,13 +271,8 @@ class AbstractCommonMagicLampEffect extends Clutter.DeformEffect {
             this.icon.y = this.monitor.height + this.monitor.y;
         }
 
-        Main.layoutManager.monitors.forEach((monitor, monitorIndex)  => {
-            let scale = 1;
-            if (global.display && global.display.get_monitor_scale) {
-                scale = global.display.get_monitor_scale(monitorIndex);
-            }
-
-            if (this.icon.x >= monitor.x && this.icon.x <= monitor.x + monitor.width * scale && this.icon.y >= monitor.y && this.icon.y <= monitor.y + monitor.height * scale)  {
+        Main.layoutManager.monitors.forEach((monitor) => {
+            if (this.icon.x >= monitor.x && this.icon.x <= monitor.x + monitor.width && this.icon.y >= monitor.y && this.icon.y <= monitor.y + monitor.height) {
                 this.iconMonitor = monitor;
             }
         });
@@ -433,8 +441,9 @@ class MagicLampMinimizeEffect extends AbstractCommonMagicLampEffect {
     }
 
     on_tick_elapsed(timer, msecs) {
-        if (Main.overview.visible) {
+        if (Main.overview.visible || !this.actor || !this.actor.get_parent()) {
             this.destroy();
+            return;
         }
 
         this.progress = timer.get_progress();
@@ -449,7 +458,7 @@ class MagicLampMinimizeEffect extends AbstractCommonMagicLampEffect {
         return false;
     }
 }
-    
+
 class MagicLampUnminimizeEffect extends AbstractCommonMagicLampEffect {
     static {
         GObject.registerClass(this);
@@ -462,15 +471,16 @@ class MagicLampUnminimizeEffect extends AbstractCommonMagicLampEffect {
         this.j = 1;
         this.isMinimizeEffect = false;
     }
-    
+
     destroy_actor(actor) {
         Main.wm._shellwm.original_completed_unminimize(actor);
     }
 
     on_tick_elapsed(timer, msecs) {
-        if (Main.overview.visible) {
+        if (Main.overview.visible || !this.actor || !this.actor.get_parent()) {
             this.destroy();
-        }   
+            return;
+        }
 
         this.progress = timer.get_progress();
         this.k = 1 - (this.progress > (1 - this.split) ? (this.progress - (1 - this.split)) * (1 / 1 / (1 - (1 - this.split))) : 0);
