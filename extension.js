@@ -1,4 +1,3 @@
-
 /*
  * Compiz-alike-magic-lamp-effect for GNOME Shell
  *
@@ -25,6 +24,7 @@
 'use strict';
 
 import GObject from 'gi://GObject';
+import Cogl from 'gi://Cogl';
 import Clutter from 'gi://Clutter';
 import St from 'gi://St';
 
@@ -44,17 +44,15 @@ export default class CompizMagicLampEffectExtension extends Extension {
 
         // https://github.com/GNOME/gnome-shell/blob/master/js/ui/windowManager.js
 
-        if (Main.wm._shouldAnimateActor) {
-            Main.wm.original_minimizeMaximizeWindow_shouldAnimateActor = Main.wm._shouldAnimateActor;
-            Main.wm._shouldAnimateActor = function(actor, types) {
-                let stack = new Error().stack;
-                if (stack && (stack.indexOf("_minimizeWindow") !== -1 || stack.indexOf("_unminimizeWindow") !== -1)) {
-                    return false;
-                }
-                
-                return Main.wm.original_minimizeMaximizeWindow_shouldAnimateActor(actor, types);
-            };
-        }
+        Main.wm.original_minimizeMaximizeWindow_shouldAnimateActor = Main.wm._shouldAnimateActor;
+        Main.wm._shouldAnimateActor = function(actor, types) {
+            let stack = new Error().stack;
+            if (stack && (stack.indexOf("_minimizeWindow") !== -1 || stack.indexOf("_unminimizeWindow") !== -1)) {
+                return false;
+            }
+            
+            return Main.wm.original_minimizeMaximizeWindow_shouldAnimateActor(actor, types);
+        };
 
         Main.wm._shellwm.original_completed_minimize = Main.wm._shellwm.completed_minimize;
         Main.wm._shellwm.completed_minimize = function(actor) {
@@ -101,11 +99,9 @@ export default class CompizMagicLampEffectExtension extends Extension {
         }
         if (this.minimizeId) {
             global.window_manager.disconnect(this.minimizeId);
-            this.minimizeId = null;
         }
-        if (this.unminimizeId) {
+        if (this.minimizeId) {
             global.window_manager.disconnect(this.unminimizeId);
-            this.unminimizeId = null;
         }
     
         global.get_window_actors().forEach((actor) => {
@@ -192,6 +188,7 @@ class AbstractCommonMagicLampEffect extends Clutter.DeformEffect {
         this.settingsData = params.settingsData;
 
         this.EPSILON = 40;
+        this.CLAMP_MARGIN = 16;
 
         this.isMinimizeEffect = false;
         this.newFrameEvent = null;
@@ -222,6 +219,8 @@ class AbstractCommonMagicLampEffect extends Clutter.DeformEffect {
         this.effectX = 0;
         this.effectY = 0;
         this.iconPosition = null;
+        this.iconOriginalY = 0;
+        this.iconOriginalX = 0;
 
         this.toTheBorder = true;   // true
         this.maxIconSize = null;    // 48
@@ -270,26 +269,51 @@ class AbstractCommonMagicLampEffect extends Clutter.DeformEffect {
         });
         if (this.iconMonitor.x == 0 && this.iconMonitor.y == 0 && this.iconMonitor.width == 0 && this.iconMonitor.height == 0) {
             this.iconMonitor = this.monitor;
-            // this.icon.x = this.monitor.x + this.monitor.width / 2;
-            // this.icon.y = this.monitor.height + this.monitor.y;
         }
 
         [this.icon.x, this.icon.y, this.icon.width, this.icon.height] = [this.icon.x - this.monitor.x, this.icon.y - this.monitor.y, this.icon.width, this.icon.height];
 
         if (this.icon.y + this.icon.height >= this.monitor.height - this.EPSILON) {
             this.iconPosition = St.Side.BOTTOM;
+            this.iconOriginalY = this.icon.y + this.icon.height;
+            if (this.iconOriginalY > this.monitor.height) {
+                let cached = this.constructor._lastKnownDockBottom;
+                this.iconOriginalY = (cached && cached > 0 && cached <= this.monitor.height)
+                    ? cached
+                    : this.monitor.height;
+            } else {
+                this.constructor._lastKnownDockBottom = this.iconOriginalY;
+            }
             if (this.toTheBorder) {
-                this.icon.y = this.iconMonitor.y + this.iconMonitor.height - this.monitor.y
+                this.icon.y = this.iconMonitor.y + this.iconMonitor.height - this.monitor.y;
                 this.icon.height = 0;
             }
         } else if (this.icon.x <= this.EPSILON) {
             this.iconPosition = St.Side.LEFT;
+            this.iconOriginalX = this.icon.x;
+            if (this.iconOriginalX < 0) {
+                let cached = this.constructor._lastKnownDockLeft;
+                this.iconOriginalX = (cached !== undefined && cached >= 0)
+                    ? cached
+                    : 0;
+            } else {
+                this.constructor._lastKnownDockLeft = this.iconOriginalX;
+            }
             if (this.toTheBorder) {
                 this.icon.x = this.iconMonitor.x - this.monitor.x;
                 this.icon.width = 0;
             }
         } else if (this.icon.x + this.icon.width >= this.monitor.width - this.EPSILON) {
             this.iconPosition = St.Side.RIGHT;
+            this.iconOriginalX = this.icon.x + this.icon.width;
+            if (this.iconOriginalX > this.monitor.width) {
+                let cached = this.constructor._lastKnownDockRight;
+                this.iconOriginalX = (cached !== undefined && cached <= this.monitor.width)
+                    ? cached
+                    : this.monitor.width;
+            } else {
+                this.constructor._lastKnownDockRight = this.iconOriginalX;
+            }
             if (this.toTheBorder) {
                 this.icon.x = this.iconMonitor.x + this.iconMonitor.width - this.monitor.x;
                 this.icon.width = 0;
@@ -308,6 +332,22 @@ class AbstractCommonMagicLampEffect extends Clutter.DeformEffect {
         this.newFrameEvent = this.timerId.connect('new-frame', this.on_tick_elapsed.bind(this));
         this.completedEvent = this.timerId.connect('completed', this.destroy.bind(this));
         this.timerId.start();
+    }
+
+    vfunc_paint_target(paintNode, paintContext) {
+        try {
+            let pipeline = this.get_pipeline();
+            if (pipeline) {
+                pipeline.set_layer_filters(
+                    0,
+                    Cogl.PipelineFilter.LINEAR_MIPMAP_LINEAR,
+                    Cogl.PipelineFilter.LINEAR
+                );
+            }
+        } catch(e) {
+            // Cogl pipeline not accessible — skip mip filtering
+        }
+        super.vfunc_paint_target(paintNode, paintContext);
     }
 
     destroy() {
@@ -337,6 +377,7 @@ class AbstractCommonMagicLampEffect extends Clutter.DeformEffect {
 
     vfunc_deform_vertex(w, h, v) {
         if (this.initialized) {
+
             let propX = w / this.window.width;
             let propY = h / this.window.height;
 
@@ -410,7 +451,26 @@ class AbstractCommonMagicLampEffect extends Clutter.DeformEffect {
             
             v.x = (this.x + this.offsetX + this.effectX) * propX;
             v.y = (this.y + this.offsetY + this.effectY) * propY;
+
+            // Clamp: prevent genie tail vertices from rendering below the
+            // dock pill bottom (into the floating gap).
+            // iconOriginalY is the real dock bottom in monitor-local coords,
+            // saved before toTheBorder overwrote icon.y with screen bottom.
+            if (this.iconPosition === St.Side.BOTTOM) {
+                let clipY = (this.iconOriginalY - this.window.y) * propY - this.CLAMP_MARGIN;
+                if (v.y > clipY) v.y = clipY;
+            } else if (this.iconPosition === St.Side.LEFT) {
+                let clipX = (this.iconOriginalX - this.window.x) * propX + this.CLAMP_MARGIN;
+                if (v.x < clipX) v.x = clipX;
+            } else if (this.iconPosition === St.Side.RIGHT) {
+                let clipX = (this.iconOriginalX - this.window.x) * propX - this.CLAMP_MARGIN;
+                if (v.x > clipX) v.x = clipX;
+            }
         }    
+    }
+
+    vfunc_modify_paint_volume(pv) {
+        return false;
     }
 }
 
