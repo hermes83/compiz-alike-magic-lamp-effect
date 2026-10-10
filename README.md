@@ -2,6 +2,18 @@
 
 [<img src="assets/screenshot.png" width="100%">](https://extensions.gnome.org/extension/3740/compiz-alike-magic-lamp-effect/)
 
+## Effects
+
+| Effect | Look |
+| --- | --- |
+| `default` | The Compiz magic lamp: the window funnels into its icon with a slight wave along the edges. |
+| `sine` | Same, with a stronger wave. |
+| `macos` | The macOS genie: the window keeps its full width at the top, its sides bend into a thin neck at the dock icon, then the whole window slides down the neck in one continuous motion. |
+
+**Easing** controls the speed curve of the animation. `auto` keeps the classic linear timing for `default` and `sine` and uses `ease-in-out` for `macos`; the other values override that for any effect.
+
+If no dock icon is available for a window (for example when the dock is hidden), `macos` shrinks and fades the window toward the dock edge instead of bending it.
+
 ## Installation
 
 ### From GNOME Shell Extensions

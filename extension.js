@@ -37,6 +37,15 @@ import { SettingsData } from './settings_data.js';
 const MINIMIZE_EFFECT_NAME = 'minimize-magic-lamp-effect';
 const UNMINIMIZE_EFFECT_NAME = 'unminimize-magic-lamp-effect';
 
+// 'macos' effect: the window first bends into a funnel whose sides follow an
+// S-curve into the icon, then the whole window slides down that funnel. The two
+// phases overlap so the motion reads as one continuous "genie" movement.
+const MACOS_BEND_END = 0.4;        // bend phase runs over progress 0 .. 0.4
+const MACOS_SLIDE_START = 0.2;     // slide phase runs over progress 0.2 .. 1
+const MACOS_NECK_START = 0.2;      // the sides stay straight for the first 20% of the way to the icon...
+const MACOS_NECK_END = 0.85;       // ...and have fully narrowed into the neck 85% of the way down
+const MACOS_MIN_ALONG_TILES = 30;  // mesh rows along the funnel so the curve stays smooth
+
 export default class CompizMagicLampEffectExtension extends Extension {
 
     enable() {
@@ -227,10 +236,16 @@ class AbstractCommonMagicLampEffect extends Clutter.DeformEffect {
         this.maxIconSize = null;    // 48
         this.alignIcon = 'center';  // 'left-top'
 
-        this.EFFECT = this.settingsData.EFFECT.get(); //'default' - 'sine'
+        this.EFFECT = this.settingsData.EFFECT.get(); //'default' - 'sine' - 'macos'
+        this.EASING = this.settingsData.EASING.get(); //'auto' - 'linear' - 'ease-in' - 'ease-out' - 'ease-in-out'
         this.DURATION = this.settingsData.DURATION.get();
         this.X_TILES = this.settingsData.X_TILES.get();
         this.Y_TILES = this.settingsData.Y_TILES.get();
+
+        this.hasIconTarget = false;
+        this.genie = null;
+        this.macosProgress = 0;
+        this.fadeApplied = false;
 
         this.initialized = false;
     }
@@ -252,6 +267,8 @@ class AbstractCommonMagicLampEffect extends Clutter.DeformEffect {
 
         [this.window.x, this.window.y] = [this.actor.get_x() - this.monitor.x, this.actor.get_y() - this.monitor.y];
         [this.window.width, this.window.height] = actor.get_size();
+
+        this.hasIconTarget = !!this.icon && (this.icon.width > 0 || this.icon.height > 0);
         
         if (!this.icon || (this.icon.x == 0 && this.icon.y == 0 && this.icon.width == 0 && this.icon.height == 0)) {
             this.icon.x = this.monitor.x + this.monitor.width / 2;
@@ -302,6 +319,10 @@ class AbstractCommonMagicLampEffect extends Clutter.DeformEffect {
             }
         }
 
+        if (this.EFFECT === 'macos') {
+            this.setupGenie();
+        }
+
         this.set_n_tiles(this.X_TILES, this.Y_TILES);
         
         this.timerId = new Clutter.Timeline({ actor: this.actor, duration: this.DURATION + (this.monitor.width * this.monitor.height) / (this.window.width * this.window.height) });
@@ -331,11 +352,145 @@ class AbstractCommonMagicLampEffect extends Clutter.DeformEffect {
             }
             actor.remove_effect(this);
 
+            if (this.fadeApplied) {
+                actor.opacity = 255;
+                this.fadeApplied = false;
+            }
+
             this.destroy_actor(actor);
         }
     }
 
+    easeProgress(progress) {
+        let easing = this.EASING;
+        if (easing === 'auto') {
+            easing = this.EFFECT === 'macos' ? 'ease-in-out' : 'linear';
+        }
+
+        switch (easing) {
+            case 'ease-in':
+                return progress * progress * progress;
+            case 'ease-out':
+                return 1 - Math.pow(1 - progress, 3);
+            case 'ease-in-out':
+                return progress < 0.5 ? 4 * progress * progress * progress : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+            default:
+                return progress;
+        }
+    }
+
+    // progress runs 0 -> 1 from the full window to the icon, for both minimize and unminimize
+    updatePhases(progress) {
+        if (this.EFFECT === 'macos') {
+            this.macosProgress = progress;
+            this.k = Math.min(1, Math.max(0, progress / MACOS_BEND_END));
+            this.j = Math.min(1, Math.max(0, (progress - MACOS_SLIDE_START) / (1 - MACOS_SLIDE_START)));
+
+            if (!this.genie && this.actor) {
+                this.actor.opacity = Math.round(255 * (1 - progress));
+                this.fadeApplied = true;
+            }
+        } else {
+            this.k = progress <= this.split ? progress * (1 / 1 / this.split) : 1;
+            this.j = progress > this.split ? (progress - this.split) * (1 / 1 / (1 - this.split)) : 0;
+        }
+    }
+
+    // Funnel geometry for the 'macos' effect, in monitor coordinates.
+    // "along" runs from the window edge farthest from the icon to the icon,
+    // "across" is the other axis: c0..c1 is the window span, ic0..ic1 the icon span.
+    setupGenie() {
+        if (!this.hasIconTarget) {
+            // no real icon to funnel into (dock hidden or no dock): scale and fade instead
+            this.genie = null;
+            return;
+        }
+
+        let win = this.window;
+        let icon = this.icon;
+        let g;
+        if (this.iconPosition == St.Side.BOTTOM) {
+            g = {len: icon.y - win.y, span: win.height, c0: win.x, c1: win.x + win.width, ic0: icon.x, ic1: icon.x + icon.width};
+        } else if (this.iconPosition == St.Side.TOP) {
+            g = {len: win.y + win.height - (icon.y + icon.height), span: win.height, c0: win.x, c1: win.x + win.width, ic0: icon.x, ic1: icon.x + icon.width};
+        } else if (this.iconPosition == St.Side.LEFT) {
+            g = {len: win.x + win.width - (icon.x + icon.width), span: win.width, c0: win.y, c1: win.y + win.height, ic0: icon.y, ic1: icon.y + icon.height};
+        } else {
+            g = {len: icon.x - win.x, span: win.width, c0: win.y, c1: win.y + win.height, ic0: icon.y, ic1: icon.y + icon.height};
+        }
+        g.len = Math.max(g.len, g.span);
+        this.genie = g;
+
+        if (this.iconPosition == St.Side.BOTTOM || this.iconPosition == St.Side.TOP) {
+            this.Y_TILES = Math.max(this.Y_TILES, MACOS_MIN_ALONG_TILES);
+        } else {
+            this.X_TILES = Math.max(this.X_TILES, MACOS_MIN_ALONG_TILES);
+        }
+    }
+
+    // how far the window sides have moved toward the icon at position s (0 = far edge, 1 = icon)
+    genieCurve(s) {
+        let t = Math.min(1, Math.max(0, (s - MACOS_NECK_START) / (MACOS_NECK_END - MACOS_NECK_START)));
+        return t * t * t * (t * (t * 6 - 15) + 10);
+    }
+
+    deformVertexMacos(w, h, v) {
+        let propX = w / this.window.width;
+        let propY = h / this.window.height;
+
+        if (!this.genie) {
+            let p = this.macosProgress;
+            let targetX = this.icon.x - this.window.x;
+            let targetY = this.icon.y - this.window.y;
+            v.x = (v.tx * this.window.width * (1 - p) + targetX * p) * propX;
+            v.y = (v.ty * this.window.height * (1 - p) + targetY * p) * propY;
+            return;
+        }
+
+        let g = this.genie;
+        let u, s;
+        if (this.iconPosition == St.Side.BOTTOM) {
+            u = v.tx; s = v.ty;
+        } else if (this.iconPosition == St.Side.TOP) {
+            u = v.tx; s = 1 - v.ty;
+        } else if (this.iconPosition == St.Side.LEFT) {
+            u = v.ty; s = 1 - v.tx;
+        } else {
+            u = v.ty; s = v.tx;
+        }
+
+        // the window occupies aTop..aBottom of the funnel: the bend pulls the near edge
+        // to the icon, the slide then moves the far edge down the funnel after it
+        let aTop = this.j * g.len;
+        let aBottom = g.span + this.k * (g.len - g.span);
+        let a = aTop + s * (aBottom - aTop);
+
+        let bend = this.k * this.genieCurve(a / g.len);
+        let left = g.c0 + (g.ic0 - g.c0) * bend;
+        let right = g.c1 + (g.ic1 - g.c1) * bend;
+        let c = left + u * (right - left);
+
+        let x, y;
+        if (this.iconPosition == St.Side.BOTTOM) {
+            x = c - this.window.x; y = a;
+        } else if (this.iconPosition == St.Side.TOP) {
+            x = c - this.window.x; y = this.window.height - a;
+        } else if (this.iconPosition == St.Side.LEFT) {
+            x = this.window.width - a; y = c - this.window.y;
+        } else {
+            x = a; y = c - this.window.y;
+        }
+
+        v.x = x * propX;
+        v.y = y * propY;
+    }
+
     vfunc_deform_vertex(w, h, v) {
+        if (this.initialized && this.EFFECT === 'macos') {
+            this.deformVertexMacos(w, h, v);
+            return;
+        }
+
         if (this.initialized) {
             let propX = w / this.window.width;
             let propY = h / this.window.height;
@@ -437,9 +592,8 @@ class MagicLampMinimizeEffect extends AbstractCommonMagicLampEffect {
             this.destroy();
         }
 
-        this.progress = timer.get_progress();
-        this.k = this.progress <= this.split ? this.progress * (1 / 1 / this.split) : 1;
-        this.j = this.progress > this.split ? (this.progress - this.split) * (1 / 1 / (1 - this.split)) : 0;
+        this.progress = this.easeProgress(timer.get_progress());
+        this.updatePhases(this.progress);
 
         this.actor.get_parent().queue_redraw();
         this.invalidate();
@@ -472,9 +626,8 @@ class MagicLampUnminimizeEffect extends AbstractCommonMagicLampEffect {
             this.destroy();
         }   
 
-        this.progress = timer.get_progress();
-        this.k = 1 - (this.progress > (1 - this.split) ? (this.progress - (1 - this.split)) * (1 / 1 / (1 - (1 - this.split))) : 0);
-        this.j = 1 - (this.progress <= (1 - this.split) ? this.progress * (1 / 1 / (1 - this.split)) : 1);
+        this.progress = this.easeProgress(timer.get_progress());
+        this.updatePhases(1 - this.progress);
 
         this.actor.get_parent().queue_redraw();
         this.invalidate();

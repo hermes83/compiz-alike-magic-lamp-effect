@@ -8,6 +8,12 @@
 			<description/>
 		</key>
 
+		<key type="s" name="easing">
+			<default>"auto"</default>
+			<summary>Easing</summary>
+			<description>auto picks the curve that suits the effect: linear for default and sine, ease-in-out for macos</description>
+		</key>
+
 		<key type="d" name="duration">
 			<default>400</default>
 			<summary>Duration</summary>
