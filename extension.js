@@ -428,7 +428,22 @@ class MagicLampMinimizeEffect extends AbstractCommonMagicLampEffect {
     
     }
 
+    // Animate the window's last frame. Some clients (e.g. Steam and other
+    // Chromium/CEF windows under XWayland) paint a blank white frame as soon
+    // as they are iconified, which would otherwise be what the effect shows.
+    vfunc_set_actor(actor) {
+        super.vfunc_set_actor(actor);
+        if (actor && !this.frozenActor) {
+            actor.freeze();
+            this.frozenActor = actor;
+        }
+    }
+
     destroy_actor(actor) {
+        if (this.frozenActor) {
+            this.frozenActor.thaw();
+            this.frozenActor = null;
+        }
         Main.wm._shellwm.original_completed_minimize(actor);
     }
 
