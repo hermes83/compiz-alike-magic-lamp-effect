@@ -274,6 +274,13 @@ class AbstractCommonMagicLampEffect extends Clutter.DeformEffect {
             // this.icon.y = this.monitor.height + this.monitor.y;
         }
 
+        // Far edges of the icon's monitor, relative to the window's monitor.
+        // iconMonitor.width/height alone are only correct when both monitors
+        // share an origin; with side-by-side or offset monitors the genie
+        // ended mid-screen instead of at the dock on the other monitor.
+        this.iconEdgeX = this.iconMonitor.x + this.iconMonitor.width - this.monitor.x;
+        this.iconEdgeY = this.iconMonitor.y + this.iconMonitor.height - this.monitor.y;
+
         [this.icon.x, this.icon.y, this.icon.width, this.icon.height] = [this.icon.x - this.monitor.x, this.icon.y - this.monitor.y, this.icon.width, this.icon.height];
 
         if (this.icon.y + this.icon.height >= this.monitor.height - this.EPSILON) {
@@ -371,8 +378,8 @@ class AbstractCommonMagicLampEffect extends Clutter.DeformEffect {
                     this.effectX = Math.sin((0.5 - (this.height - this.y) / this.height) * 2 * Math.PI) * (this.window.x + this.window.width * v.tx - (this.icon.x + this.icon.width * v.tx)) / 7 * this.k;
                 }
             } else if (this.iconPosition == St.Side.RIGHT) {
-                this.expandWidth = (this.iconMonitor.width - this.icon.width - this.window.x - this.window.width);
-                this.fullWidth = (this.iconMonitor.width - this.icon.width - this.window.x) - this.expandWidth * (1 - this.k);
+                this.expandWidth = (this.iconEdgeX - this.icon.width - this.window.x - this.window.width);
+                this.fullWidth = (this.iconEdgeX - this.icon.width - this.window.x) - this.expandWidth * (1 - this.k);
                 this.width = this.fullWidth - this.j * this.fullWidth;
 
                 this.x = v.tx * this.width;
@@ -381,7 +388,7 @@ class AbstractCommonMagicLampEffect extends Clutter.DeformEffect {
                         v.ty * (this.window.height - this.icon.height) * (1 - this.k) * (v.tx);
                 
                 this.offsetY = (this.icon.y - this.window.y) * (this.x / this.fullWidth) * this.k + (this.icon.y - this.window.y) * this.j;
-                this.offsetX = this.iconMonitor.width - this.icon.width - this.window.x - this.width - this.expandWidth * (1 - this.k);
+                this.offsetX = this.iconEdgeX - this.icon.width - this.window.x - this.width - this.expandWidth * (1 - this.k);
                 
                 if (this.EFFECT === 'sine') {
                     this.effectY = Math.sin((this.width - this.x) / this.fullWidth * Math.PI * 4) * this.window.height / 14 * this.k;
@@ -389,8 +396,8 @@ class AbstractCommonMagicLampEffect extends Clutter.DeformEffect {
                     this.effectY = Math.sin(((this.width - this.x) / this.fullWidth) * 2 * Math.PI + Math.PI) * (this.window.y + this.window.height * v.ty - (this.icon.y + this.icon.height * v.ty)) / 7 * this.k;
                 }
             } else if (this.iconPosition == St.Side.BOTTOM) {
-                this.expandHeight = (this.iconMonitor.height - this.icon.height - this.window.y - this.window.height);
-                this.fullHeight = (this.iconMonitor.height - this.icon.height - this.window.y) - this.expandHeight * (1 - this.k);
+                this.expandHeight = (this.iconEdgeY - this.icon.height - this.window.y - this.window.height);
+                this.fullHeight = (this.iconEdgeY - this.icon.height - this.window.y) - this.expandHeight * (1 - this.k);
                 this.height = this.fullHeight - this.j * this.fullHeight;
                 
                 this.y = v.ty * this.height;
@@ -399,7 +406,7 @@ class AbstractCommonMagicLampEffect extends Clutter.DeformEffect {
                         v.tx * (this.window.width - this.icon.width) * (1 - this.k) * (v.ty);
 
                 this.offsetX = (this.icon.x - this.window.x) * (this.y / this.fullHeight) * this.k + (this.icon.x - this.window.x) * this.j;
-                this.offsetY = this.iconMonitor.height - this.icon.height - this.window.y - this.height - this.expandHeight * (1 - this.k);
+                this.offsetY = this.iconEdgeY - this.icon.height - this.window.y - this.height - this.expandHeight * (1 - this.k);
 
                 if (this.EFFECT === 'sine') {
                     this.effectX = Math.sin((this.height - this.y) / this.fullHeight * Math.PI * 4) * this.window.width / 14 * this.k;
