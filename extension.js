@@ -408,7 +408,12 @@ class AbstractCommonMagicLampEffect extends Clutter.DeformEffect {
                 }
             }
             
-            v.x = (this.x + this.offsetX + this.effectX) * propX;
+            // The offscreen texture is wider than the window by a margin on each side
+            // so scaling by propX alone drifts left as the window nears the icon
+            const localX = this.x + this.offsetX + this.effectX;
+            const marginX = (w - this.window.width) / 2;
+            v.x = localX + marginX +
+                (localX - this.window.width / 2) * (propX - 1) * (1 - this.k);
             v.y = (this.y + this.offsetY + this.effectY) * propY;
         }    
     }
