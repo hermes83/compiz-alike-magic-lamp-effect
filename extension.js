@@ -133,8 +133,7 @@ export default class CompizMagicLampEffectExtension extends Extension {
         } 
     
         let monitor = Main.layoutManager.monitors[actor.meta_window.get_monitor()];
-        if (monitor && Main.overview.dash) {
-            Main.overview.dash._redisplay();  
+        if (monitor && Main.overview.dash && Main.overview.dash._box) {  
 
             let dashIcon = null;
             let transformed_position = null;
