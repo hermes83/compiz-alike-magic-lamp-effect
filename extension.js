@@ -26,6 +26,7 @@
 
 import GObject from 'gi://GObject';
 import Clutter from 'gi://Clutter';
+import Cogl from 'gi://Cogl';
 import St from 'gi://St';
 
 import { Extension } from 'resource:///org/gnome/shell/extensions/extension.js';
@@ -238,6 +239,24 @@ class AbstractCommonMagicLampEffect extends Clutter.DeformEffect {
     destroy_actor(actor) {}
 
     on_tick_elapsed(timer, msecs) {}
+
+    // Screen sharing, screen recording and screenshots repaint the stage into
+    // their own framebuffer (clutter_stage_paint_to_framebuffer). That repaint
+    // clears only the colour, not the depth, while ClutterDeformEffect draws
+    // its mesh with depth testing on, so the whole animation was dropped from
+    // the shared picture. Clear the depth of such a framebuffer before the
+    // mesh is drawn; the on-screen paint (a stage view's framebuffer) is left
+    // exactly as it was.
+    vfunc_paint(node, paintContext, flags) {
+        let framebuffer = paintContext.get_framebuffer();
+        let stage = this.actor ? this.actor.get_stage() : null;
+        if (framebuffer && stage &&
+            !stage.peek_stage_views().some(view => view.get_framebuffer() === framebuffer)) {
+            framebuffer.clear4f(Cogl.BufferBit.DEPTH, 0, 0, 0, 0);
+        }
+
+        super.vfunc_paint(node, paintContext, flags);
+    }
 
     vfunc_set_actor(actor) {
         super.vfunc_set_actor(actor);
