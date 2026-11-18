@@ -19,6 +19,7 @@ rsync -av --progress . "$INSTALL_DIR" \
     --exclude "CONTRIBUTING.md" \
     --exclude "zip.sh" \
     --exclude "install.sh" \
+    --exclude "tests" \
     --exclude "assets"
 
 # Compile schemas
